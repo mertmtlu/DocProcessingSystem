@@ -33,7 +33,7 @@ namespace DocProcessingSystem.Services
         /// <summary>
         /// Converts a Word document to PDF format and copies the original file to the output location
         /// </summary>
-        public void Convert(string inputPath, string outputPath)
+        public void Convert(string inputPath, string outputPath, bool saveWordChanges)
         {
             if (!File.Exists(inputPath))
                 throw new FileNotFoundException($"Input file not found: {inputPath}");
@@ -65,6 +65,8 @@ namespace DocProcessingSystem.Services
                     BitmapMissingFonts: true,
                     UseISO19005_1: false
                 );
+
+                if (saveWordChanges) doc.Save();
 
                 // Copy the original file to the output location
                 string originalFileName = Path.GetFileName(inputPath);

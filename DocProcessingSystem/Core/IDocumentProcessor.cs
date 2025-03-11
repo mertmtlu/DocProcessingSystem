@@ -8,6 +8,6 @@
         /// <summary>
         /// Converts a document from one format to another
         /// </summary>
-        void Convert(string inputPath, string outputPath);
+        void Convert(string inputPath, string outputPath, bool saveWordChanges);
     }
 }

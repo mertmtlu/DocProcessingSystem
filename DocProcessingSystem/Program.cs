@@ -13,7 +13,24 @@ namespace DocProcessingSystem
         /// </summary>
         static void Main(string[] args)
         {
-            ProcessSubFolder(@"C:\Users\Mert\Desktop\Mert EK-A - Kopya\TM Folders", @"C:\Users\Mert\Desktop\TM Folders");
+            
+        }
+
+        static void ConvertWordToPdf(string inputFolderPath, string outputFolderPath, bool saveChanges)
+        {
+            var wordFiles = Directory.GetFiles(inputFolderPath, "*.docx", SearchOption.AllDirectories);
+
+            using (var converter = new WordToPdfConverter())
+            {
+                foreach (string file in wordFiles)
+                {
+                    var baseName = Path.GetFileNameWithoutExtension(file);
+
+                    var outputPath = Path.Combine(outputFolderPath, baseName + ".pdf");
+
+                    converter.Convert(file, outputPath, saveChanges);
+                }
+            }
         }
 
         static void HandleMasonry()
@@ -41,22 +58,6 @@ namespace DocProcessingSystem
                 }
             }
 
-        }
-
-        static void ConvertWordsToPdf()
-        {
-            var inputFolderLocation = @"C:\Users\Mert\Desktop\testInput";
-            var outputFolderLocation = @"C:\Users\Mert\Desktop\testOutput";
-            var wordFiles = Directory.GetFiles(inputFolderLocation, "*.docx", SearchOption.AllDirectories);
-
-            using (var converter = new WordToPdfConverter())
-            {
-                foreach (var word in wordFiles)
-                {
-                    var outputLocation = Path.Combine(outputFolderLocation, Path.GetFileNameWithoutExtension(word));
-                    converter.Convert(word, outputLocation + ".pdf");
-                }
-            }
         }
 
         static void ProcessDocuments()

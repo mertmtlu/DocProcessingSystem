@@ -72,7 +72,7 @@ namespace DocProcessingSystem.Services
                     try
                     {
                         //if (File.Exists(outputPath)) continue;
-                        _processor.Convert(docPath, outputPath);
+                        _processor.Convert(docPath, outputPath, false);
                         var sequence = GetMergeSequence(group);
 
                         Console.WriteLine($"Merging: {Path.GetFileNameWithoutExtension(sequence.OutputPath)}");
