@@ -165,22 +165,15 @@ namespace DocProcessingSystem.Services
         {
         }
 
-        /// <summary>
-        /// Processes documents from source folder against analysis groups
-        /// </summary>
-        public override void ProcessDocuments(string sourceFolder, ref List<FolderGroup> analysisGroups, in IPdfMerger merger)
+        private void CreateEkFiles(string sourceFolder, ref List<FolderGroup> analysisGroups, in IPdfMerger merger)
         {
-            // Call the base implementation first
-            base.ProcessDocuments(sourceFolder, ref analysisGroups, in merger);
-
-            // Then add Post2008DocumentHandler specific code
             Console.WriteLine("Processing additional EK-B documents for Post2008 handler");
 
             // Process the remaining groups for EK-B documents
             foreach (var group in analysisGroups)
             {
                 var ekBSequence = GetMergeSequenceForEkB(group);
-                Console.WriteLine($"Merging EK-B for {group.BuildingCode}-{group.BuildingTmId}");
+                Console.WriteLine($"Merging EK-B for TM No: {group.TmNo}, Building Code: {group.BuildingCode}, Building TM ID: {group.BuildingTmId}");
 
                 try
                 {
@@ -195,7 +188,39 @@ namespace DocProcessingSystem.Services
                 {
                     Console.WriteLine($"Error processing EK-B document: {ex.Message}");
                 }
+
+                if (group.PathCount > 1)
+                {
+                    var ekCSequence = GetMergeSequenceForEkC(group);
+                    Console.WriteLine($"Merging EK-C for TM No: {group.TmNo}, Building Code: {group.BuildingCode}, Building TM ID: {group.BuildingTmId}");
+
+                    try
+                    {
+                        merger.MergePdf(
+                            ekCSequence.MainDocument,
+                            ekCSequence.AdditionalDocuments,
+                            ekCSequence.OutputPath,
+                            ekCSequence.Options
+                        );
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Error processing EK-C document: {ex.Message}");
+                    }
+                }
             }
+        }
+
+        /// <summary>
+        /// Processes documents from source folder against analysis groups
+        /// </summary>
+        public override void ProcessDocuments(string sourceFolder, ref List<FolderGroup> analysisGroups, in IPdfMerger merger)
+        {
+            // Process the specific code first
+            //CreateEkFiles(sourceFolder, ref analysisGroups, in merger);
+
+            // Then call the base implementation
+            base.ProcessDocuments(sourceFolder, ref analysisGroups, in merger);
         }
 
         /// <summary>
@@ -297,7 +322,6 @@ namespace DocProcessingSystem.Services
         /// Gets the merge sequence for additional EK-B document
         /// </summary>
         public MergeSequence GetMergeSequenceForEkB(FolderGroup folderGroup)
-
         {
             //throw new NotImplementedException();
 
@@ -372,11 +396,89 @@ namespace DocProcessingSystem.Services
             var areaId = folderGroup.TmNo.Split("-")[0];
             var tmId = folderGroup.TmNo.Split("-")[1];
 
+            var outputFolder = folderGroup.MainFolder.Replace("NİHAİ_TESLİM", "EK_B");
+
+            if (!Path.Exists(outputFolder))
+            {
+                Directory.CreateDirectory(outputFolder);
+            }
+
             return new MergeSequence
             {
                 MainDocument = mainPdf,
                 AdditionalDocuments = additionalPdfs,
-                OutputPath = Path.Combine(folderGroup.MainFolder, "EK-B"),
+                OutputPath = Path.Combine(outputFolder, "EK-B.pdf"),
+                Options = options
+            };
+        }
+
+        /// <summary>
+        /// Gets the merge sequence for additional EK-C document
+        /// </summary>
+        public MergeSequence GetMergeSequenceForEkC(FolderGroup folderGroup)
+        {
+            //throw new NotImplementedException();
+
+            // Get additional PDFs
+            var additionalPdfs = new List<string>();
+
+            string projectRootPath = AppDomain.CurrentDomain.BaseDirectory;
+            string post2008CoverPath = Path.Combine(projectRootPath, "CoverPages", "Post2008");
+            string mainPdf = Path.Combine(post2008CoverPath, "EK-B_B-Blok.pdf");
+
+            if (folderGroup.MainFolder.Contains("M10"))
+            {
+                switch (folderGroup.PathCount)
+                {
+                    case 2:
+                        additionalPdfs.Add(Path.Combine(folderGroup.Paths[1], "Kapak_DD2.pdf"));
+                        additionalPdfs.Add(Path.Combine(folderGroup.Paths[1], "2_Tespit_DD2.pdf"));
+                        break;
+                    // TODO: Add cases for more blocks
+
+                    default:
+                        throw new Exception("Unhandled number of blocks!!");
+                }
+            }
+            else
+            {
+                switch (folderGroup.PathCount)
+                {
+                    case 2:
+                        additionalPdfs.Add(Path.Combine(folderGroup.Paths[1], "Kapak_DD1.pdf"));
+                        additionalPdfs.Add(Path.Combine(folderGroup.Paths[1], "2_Tespit_DD1.pdf"));
+                        additionalPdfs.Add(Path.Combine(folderGroup.Paths[1], "Kapak_DD2.pdf"));
+                        additionalPdfs.Add(Path.Combine(folderGroup.Paths[1], "2_Tespit_DD2.pdf"));
+                        additionalPdfs.Add(Path.Combine(folderGroup.Paths[1], "Kapak_DD3.pdf"));
+                        additionalPdfs.Add(Path.Combine(folderGroup.Paths[1], "2_Tespit_DD3.pdf"));
+                        break;
+                    // TODO: Add cases for more blocks
+
+                    default:
+                        throw new Exception("Unhandled number of blocks!!");
+                }
+            }
+
+            var options = new MergeOptions
+            {
+                PreserveBookmarks = true
+            };
+
+            var areaId = folderGroup.TmNo.Split("-")[0];
+            var tmId = folderGroup.TmNo.Split("-")[1];
+
+            var outputFolder = folderGroup.Paths[1].Replace("NİHAİ_TESLİM", "EK_B");
+
+            if (!Path.Exists(outputFolder))
+            {
+                Directory.CreateDirectory(outputFolder);
+            }
+
+            return new MergeSequence
+            {
+                MainDocument = mainPdf,
+                AdditionalDocuments = additionalPdfs,
+                OutputPath = Path.Combine(outputFolder, "EK-C.pdf"),
                 Options = options
             };
         }

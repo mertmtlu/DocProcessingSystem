@@ -1,6 +1,7 @@
 ﻿using DocProcessingSystem.Core;
 using DocProcessingSystem.Models;
 using DocProcessingSystem.Services;
+using iText.Kernel.Numbering;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 
@@ -13,7 +14,93 @@ namespace DocProcessingSystem
         /// </summary>
         static void Main(string[] args)
         {
-            
+            ProcessDocuments();
+        }
+        
+        public static void HandleCrisis()
+        {
+            var inputFolder = @"C:\Users\Mert\Desktop\HK15";
+            var outputFolder = @"C:\Users\Mert\Desktop\HK15 TM FOLDERS";
+
+            var ekCFiles = Directory.GetFiles(inputFolder, "EK-C.pdf", SearchOption.AllDirectories);
+
+            foreach (var file in ekCFiles)
+            {
+                try
+                {
+                    Console.WriteLine("Processing: " + file);
+                    var (tmNo, buildingCode, buildingTmId) = FolderHelper.ExtractParts(file);
+
+                    if (tmNo == null || buildingCode == null || buildingTmId == null) throw new ArgumentNullException(file);
+                    var outputFolderName = $"{tmNo}_M{buildingCode}_{buildingTmId}";
+
+                    var outputDir = Path.Combine(outputFolder, outputFolderName);
+
+                    if (!Directory.Exists(outputFolderName))
+                    {
+                        Directory.CreateDirectory(outputFolderName);
+                    }
+
+                    ExtractPagesFromPdf(file, outputDir);
+
+                    string directoryPath = Path.GetDirectoryName(file);
+
+                    // Files to copy
+                    var ekA = Path.Combine(directoryPath, "EK-A.pdf");
+                    var ekB = Path.Combine(directoryPath, "EK-B.pdf");
+                    var ekC = Path.Combine(directoryPath, "EK-C.pdf");
+
+                    // folders to copy
+                    var buildingImages = Path.Combine(directoryPath, "Analysis", "BuildingImages");
+                    var planFromCad = Path.Combine(directoryPath, "Analysis", "PlanFromCAD");
+
+                    // Copy files and folders to outputDir
+                    if (File.Exists(ekA)) File.Copy(ekA, Path.Combine(outputDir, "EK-A.pdf"), true);
+                    if (File.Exists(ekB)) File.Copy(ekB, Path.Combine(outputDir, "EK-B.pdf"), true);
+                    if (File.Exists(ekC)) File.Copy(ekC, Path.Combine(outputDir, "EK-C.pdf"), true);
+
+                    if (Directory.Exists(buildingImages))
+                    {
+                        var targetBuildingImages = Path.Combine(outputDir, "BuildingImages");
+                        CopyDirectory(buildingImages, targetBuildingImages);
+                    }
+
+                    if (Directory.Exists(planFromCad))
+                    {
+                        var targetPlanFromCad = Path.Combine(outputDir, "PlanFromCAD");
+                        CopyDirectory(planFromCad, targetPlanFromCad);
+                    }
+
+                    Console.WriteLine("");
+                }
+                catch
+                {
+                    Console.WriteLine($"ERROR: Cannot process file, Name: {Path.GetFileName(file)}, Path: {file}");
+                }
+
+            }
+        }
+        public static void CopyDirectory(string sourceDir, string destinationDir)
+        {
+            if (!Directory.Exists(destinationDir))
+            {
+                Directory.CreateDirectory(destinationDir);
+            }
+
+            // Copy all files
+            foreach (var file in Directory.GetFiles(sourceDir))
+            {
+                string fileName = Path.GetFileName(file);
+                string destFile = Path.Combine(destinationDir, fileName);
+                File.Copy(file, destFile, true); // true to overwrite if exists
+            }
+
+            foreach (var directory in Directory.GetDirectories(sourceDir))
+            {
+                string dirName = Path.GetFileName(directory);
+                string destDir = Path.Combine(destinationDir, dirName);
+                CopyDirectory(directory, destDir);
+            }
         }
 
         static void ConvertWordToPdf(string inputFolderPath, string outputFolderPath, bool saveChanges)
@@ -65,8 +152,8 @@ namespace DocProcessingSystem
             // Get folder paths from arguments or use defaults
             string parametricsFolder = @"C:\Users\Mert\Desktop\testing\Parametric";
             string deterministicsFolder = @"C:\Users\Mert\Desktop\testing\Deterministic";
-            string post2008 = @"C:\Users\Mert\Desktop\testing\Post2008";
-            string analysisFolder = @"C:\Users\Mert\Desktop\testing\Analysis";
+            string post2008 = @"C:\Users\Mert\Desktop\fırat\fırat\WORD";
+            string analysisFolder = @"C:\Users\Mert\Desktop\fırat\fırat\NİHAİ_TESLİM";
 
             using (var converter = new WordToPdfConverter())
             using (var merger = new PdfMergerService())
@@ -102,32 +189,76 @@ namespace DocProcessingSystem
         }
 
         // Example
-        static void ExtractPagesFromPdf()
+        static void ExtractPagesFromPdf(string file, string outputFolder)
         {
-            var options = new PdfExtractionOptions
+            var service = new PdfRangeExtractorService();
+
+            var summaryOptions = new PdfExtractionOptions
             {
                 StartPageSelectionType = PageSelectionType.Keyword,
                 StartKeyword = new KeywordOptions
                 {
-                    Keyword = "EK-A",
+                    Keyword = "HASARSIZ TESPİT EDİLEN DONATILAR İÇİN",
                     Occurrence = KeywordOccurrence.Last,
                     IncludeMatchingPage = true
                 },
                 EndPageSelectionType = PageSelectionType.Keyword,
                 EndKeyword = new KeywordOptions
                 {
-                    Keyword = "EK-B",
+                    Keyword = "PASPAYI SIYIRMA YÖNTEMİ İLE TESPİT EDİLEN DONATILAR İÇİN",
+                    Occurrence = KeywordOccurrence.Last,
+                    IncludeMatchingPage = true
+                }
+            };
+
+            service.ExtractRange(
+                file, // TODO: Change Input Pdf Location 
+                Path.Combine(outputFolder, Path.GetFileName(outputFolder) + "_Özet_Rapor.pdf"),
+                summaryOptions
+            );
+
+            var sıyırmaOptions = new PdfExtractionOptions
+            {
+                StartPageSelectionType = PageSelectionType.Keyword,
+                StartKeyword = new KeywordOptions
+                {
+                    Keyword = "EK-C",
+                    Occurrence = KeywordOccurrence.Last,
+                    IncludeMatchingPage = false
+                },
+                EndPageSelectionType = PageSelectionType.Keyword,
+                EndKeyword = new KeywordOptions
+                {
+                    Keyword = "HASARSIZ TESPİT EDİLEN DONATILAR İÇİN",
                     Occurrence = KeywordOccurrence.Last,
                     IncludeMatchingPage = false
                 }
             };
 
-            var service = new PdfRangeExtractorService();
             service.ExtractRange(
-                @"C:\Users\Mert\Desktop\TEI-B01-TM-24-DIR-M10-01_nt.pdf",   // TODO: Change Input Pdf Location 
-                @"C:\Users\Mert\Desktop\EK-A.pdf",                          // TODO: Change Output Pdf Location
-                options
-            );
+                file,
+                Path.Combine(outputFolder, "SIYIRMA FOTO.pdf"),
+                sıyırmaOptions
+                );
+
+            var rontgenOptions = new PdfExtractionOptions
+            {
+                StartPageSelectionType = PageSelectionType.Keyword,
+                StartKeyword = new KeywordOptions
+                {
+                    Keyword = "PASPAYI SIYIRMA YÖNTEMİ İLE TESPİT EDİLEN DONATILAR İÇİN",
+                    Occurrence = KeywordOccurrence.Last,
+                    IncludeMatchingPage = false
+                },
+                EndPageSelectionType = PageSelectionType.LastPage,
+            };
+
+            service.ExtractRange(
+                file,
+                Path.Combine(outputFolder, "RONTGEN.pdf"),
+                rontgenOptions
+                );
+
         }
 
         /// <summary>

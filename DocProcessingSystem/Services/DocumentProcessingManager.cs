@@ -39,9 +39,9 @@ namespace DocProcessingSystem.Services
                 var key = item.Key;
                 var value = item.Value;
 
-                if (!Directory.Exists(key))
+                if (!Directory.Exists(value))
                 {
-                    Console.WriteLine($"Warning: Parametrics folder not found: {value}");
+                    Console.WriteLine($"Warning: {key} folder not found: {value}");
                 }
             }
 
