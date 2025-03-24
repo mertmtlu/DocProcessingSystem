@@ -1,9 +1,8 @@
 ﻿using DocProcessingSystem.Core;
 using DocProcessingSystem.Models;
 using DocProcessingSystem.Services;
-using iText.Kernel.Numbering;
-using System.Diagnostics;
-using System.Runtime.CompilerServices;
+using Microsoft.VisualBasic;
+using OfficeOpenXml;
 
 namespace DocProcessingSystem
 {
@@ -16,7 +15,7 @@ namespace DocProcessingSystem
         {
             ProcessDocuments();
         }
-        
+
         public static void HandleCrisis()
         {
             var inputFolder = @"C:\Users\Mert\Desktop\HK15";
@@ -80,6 +79,156 @@ namespace DocProcessingSystem
 
             }
         }
+
+        public static void RenameWordFiles()
+        {
+            var inputFolder = @"C:\Users\Mert\Desktop\Selin Report Revision\v5\v5 - Kopya";
+            var excelFile = @"C:\Users\Mert\Desktop\SZL-2_TM_KISA_TR_ISIM_LISTE_20250319.xlsx";
+
+            var tmNameJson = ConvertExcelToDictionary(excelFile);
+
+            var wordDocuments = Directory.GetFiles(inputFolder, "*.docx", SearchOption.AllDirectories);
+
+            foreach (var wordDocument in wordDocuments)
+            {
+                if (wordDocument.Contains("M00"))
+                {
+                    
+                }
+                else
+                {
+                    try
+                    {
+                        // Extract information from the filename
+                        var (tmNo, buildingCode, buildingTmId) = FolderHelper.ExtractParts(wordDocument);
+
+                        // Get the shortened name for this TM number
+                        var shortenedName = FindShortenedName(tmNo, tmNameJson)?.ToString();
+
+                        if (shortenedName == null) throw new ArgumentNullException("Shortened Name Not Found.");
+
+                        // Get the building name from our constants dictionary
+                        var buildingName = Constants.CodeToName[Convert.ToInt32(buildingCode)];
+
+                        // Split the TM number to get area ID and TM ID
+                        var areaId = tmNo.Split("-")[0];
+                        var tmId = tmNo.Split("-")[1];
+
+                        // Create the new filename with the required format
+                        var newName = $"TEI-B{areaId}-TM-{tmId}-DIR-M{buildingCode}-{buildingTmId}_NT ({shortenedName}-{buildingName}).docx";
+
+                        // Get the directory path from the original document
+                        string directoryPath = Path.GetDirectoryName(wordDocument);
+
+                        // Combine directory path with new filename
+                        string newFilePath = Path.Combine(directoryPath, newName);
+
+                        // Rename the file
+                        if (File.Exists(newFilePath))
+                        {
+                            Console.WriteLine($"Warning: A file with the name '{newName}' already exists. Skipping rename operation for {wordDocument}");
+                        }
+                        else
+                        {
+                            File.Move(wordDocument, newFilePath);
+                            Console.WriteLine($"Successfully renamed: {Path.GetFileName(wordDocument)} -> {newName}");
+                        }
+                    }
+                    catch (KeyNotFoundException)
+                    {
+                        Console.WriteLine($"Error: Could not find building code in dictionary for document: {wordDocument}");
+                    }
+                    catch (IndexOutOfRangeException)
+                    {
+                        Console.WriteLine($"Error: Invalid TM number format in document: {wordDocument}");
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Error processing document {wordDocument}: {ex.Message}");
+                    }
+                }
+            }
+        }
+
+        public static object FindShortenedName(string tmNo, List<Dictionary<string, object>> e)
+        {
+            foreach (var item in e)
+            {
+                var tmKey = item.Keys.FirstOrDefault(a => a.Contains("TM"));
+
+                var value = item[tmKey]?.ToString();
+
+                if (tmKey != null && value == tmNo)
+                {
+                    var shortenedNameKey = item.Keys.FirstOrDefault(a => a.Contains("KISA TR İSİM (DOSYA ADLANDIRMA İÇİN)"));
+
+                    if (shortenedNameKey != null)
+                    {
+                        return item[shortenedNameKey];
+                    }
+                }
+            }
+
+            // If no match is found, return null
+            return null;
+        }
+
+        public static List<Dictionary<string, object>> ConvertExcelToDictionary(string filePath, string sheetName = null)
+        {
+            // Set the license context (required for EPPlus 5+)
+            ExcelPackage.LicenseContext = OfficeOpenXml.LicenseContext.NonCommercial;
+
+            var result = new List<Dictionary<string, object>>();
+
+            using (var package = new ExcelPackage(new FileInfo(filePath)))
+            {
+                // Get the specified worksheet, or the first one if not specified
+                ExcelWorksheet worksheet = sheetName != null
+                    ? package.Workbook.Worksheets[sheetName]
+                    : package.Workbook.Worksheets[0];
+
+                // Check if worksheet exists
+                if (worksheet == null)
+                {
+                    throw new ArgumentException($"Worksheet '{sheetName}' not found.");
+                }
+
+                // Determine the dimensions of the worksheet
+                int rowCount = worksheet.Dimension.Rows;
+                int colCount = worksheet.Dimension.Columns;
+
+                // Get the header row (property names)
+                var headers = new List<string>();
+                for (int col = 1; col <= colCount; col++)
+                {
+                    string header = worksheet.Cells[1, col].Value?.ToString();
+                    if (!string.IsNullOrEmpty(header))
+                    {
+                        headers.Add(header);
+                    }
+                }
+
+                // Process each row
+                for (int row = 2; row < rowCount; row++) // Start from row 2 (after header)
+                {
+                    var rowDict = new Dictionary<string, object>();
+
+                    for (int col = 1; col <= headers.Count; col++)
+                    {
+                        var cellValue = worksheet.Cells[row, col].Value;
+                        if (col <= headers.Count) // Ensure we don't go out of bounds
+                        {
+                            rowDict[headers[col - 1]] = cellValue;
+                        }
+                    }
+
+                    result.Add(rowDict);
+                }
+            }
+
+            return result;
+        }
+
         public static void CopyDirectory(string sourceDir, string destinationDir)
         {
             if (!Directory.Exists(destinationDir))
@@ -152,8 +301,8 @@ namespace DocProcessingSystem
             // Get folder paths from arguments or use defaults
             string parametricsFolder = @"C:\Users\Mert\Desktop\testing\Parametric";
             string deterministicsFolder = @"C:\Users\Mert\Desktop\testing\Deterministic";
-            string post2008 = @"C:\Users\Mert\Desktop\fırat\fırat\WORD";
-            string analysisFolder = @"C:\Users\Mert\Desktop\fırat\fırat\NİHAİ_TESLİM";
+            string post2008 = @"C:\Users\Mert\Desktop\Fırat Report Revision\MM_RAPOR\WORD";
+            string analysisFolder = @"C:\Users\Mert\Desktop\Fırat Report Revision\MM_RAPOR\ANALİZ";
 
             using (var converter = new WordToPdfConverter())
             using (var merger = new PdfMergerService())

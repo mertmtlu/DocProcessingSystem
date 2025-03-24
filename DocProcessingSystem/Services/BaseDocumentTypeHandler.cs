@@ -242,13 +242,13 @@ namespace DocProcessingSystem.Services
                 switch (folderGroup.PathCount) 
                 {
                     case 1:
-                        additionalPdfs.Add(Path.Combine(folderGroup.MainFolder, "EK-A.pdf"));
+                        additionalPdfs.Add(GetEkAFile(folderGroup));
                         additionalPdfs.Add(Path.Combine(post2008CoverPath, "EK-B.pdf"));
                         additionalPdfs.Add(Path.Combine(folderGroup.MainFolder, "Kapak_DD2.pdf"));
                         additionalPdfs.Add(Path.Combine(folderGroup.MainFolder, "2_Tespit_DD2.pdf"));
                         break;
                     case 2:
-                        additionalPdfs.Add(Path.Combine(folderGroup.MainFolder, "EK-A.pdf"));
+                        additionalPdfs.Add(GetEkAFile(folderGroup));
                         additionalPdfs.Add(Path.Combine(post2008CoverPath, "EK-B_A-Blok.pdf"));
                         additionalPdfs.Add(Path.Combine(folderGroup.MainFolder, "Kapak_DD2.pdf"));
                         additionalPdfs.Add(Path.Combine(folderGroup.MainFolder, "2_Tespit_DD2.pdf"));
@@ -267,7 +267,7 @@ namespace DocProcessingSystem.Services
                 switch (folderGroup.PathCount)
                 {
                     case 1:
-                        additionalPdfs.Add(Path.Combine(folderGroup.MainFolder, "EK-A.pdf"));
+                        additionalPdfs.Add(GetEkAFile(folderGroup));
                         additionalPdfs.Add(Path.Combine(post2008CoverPath, "EK-B.pdf"));
                         additionalPdfs.Add(Path.Combine(folderGroup.MainFolder, "Kapak_DD1.pdf"));
                         additionalPdfs.Add(Path.Combine(folderGroup.MainFolder, "2_Tespit_DD1.pdf"));
@@ -277,7 +277,7 @@ namespace DocProcessingSystem.Services
                         additionalPdfs.Add(Path.Combine(folderGroup.MainFolder, "2_Tespit_DD3.pdf"));
                         break;
                     case 2:
-                        additionalPdfs.Add(Path.Combine(folderGroup.MainFolder, "EK-A.pdf"));
+                        additionalPdfs.Add(GetEkAFile(folderGroup));
                         additionalPdfs.Add(Path.Combine(post2008CoverPath, "EK-B_A-Blok.pdf"));
                         additionalPdfs.Add(Path.Combine(folderGroup.MainFolder, "Kapak_DD1.pdf"));
                         additionalPdfs.Add(Path.Combine(folderGroup.MainFolder, "2_Tespit_DD1.pdf"));
@@ -316,6 +316,30 @@ namespace DocProcessingSystem.Services
                 OutputPath = Path.Combine(folderGroup.MainFolder, $"TEI-B{areaId}-TM-{tmId}-DIR-M{folderGroup.BuildingCode}-{folderGroup.BuildingTmId}_nt.pdf"),
                 Options = options
             };
+        }
+
+        public string GetEkAFile(FolderGroup folderGroup)
+        {
+            var location = @"C:\Users\Mert\Desktop\Fırat Report Revision\MM_RAPOR\EK-A";
+
+            var possibleFolderNames = new List<string>()
+            {
+                @$"{folderGroup.TmNo}_M{folderGroup.BuildingCode}-{folderGroup.BuildingTmId}",
+                @$"{folderGroup.TmNo}_M{folderGroup.BuildingCode}-{folderGroup.BuildingTmId}-A"
+            };
+
+            string ekFile = null;
+
+            foreach (var name in possibleFolderNames)
+            {
+                var path = Path.Combine(location, name, "EK-A.pdf");
+
+                if (File.Exists(path)) ekFile = path;
+            }
+
+            if (ekFile == null) throw new ArgumentNullException("Could not find EK-A file");
+
+            return ekFile;
         }
 
         /// <summary>
