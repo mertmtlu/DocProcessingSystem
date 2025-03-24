@@ -228,6 +228,8 @@ namespace DocProcessingSystem.Services
         /// </summary>
         public override MergeSequence GetMergeSequence(FolderGroup folderGroup)
         {
+            CopyAdditionalFiles(folderGroup);
+
             //throw new NotImplementedException();
             string mainPdf = Path.Combine(folderGroup.MainFolder, "main.pdf");
 
@@ -318,9 +320,9 @@ namespace DocProcessingSystem.Services
             };
         }
 
-        public string GetEkAFile(FolderGroup folderGroup)
+        private string GetEkAFile(FolderGroup folderGroup)
         {
-            var location = @"C:\Users\Mert\Desktop\Fırat Report Revision\MM_RAPOR\EK-A";
+            var location = @"C:\Users\Mert\Desktop\Fırat Report Revision\MM_RAPOR\EK-A"; // TODO: FIRAT
 
             var possibleFolderNames = new List<string>()
             {
@@ -540,6 +542,84 @@ namespace DocProcessingSystem.Services
             string mainPdfPath = Path.Combine(mainFolder, "main.pdf");
 
             return mainPdfPath;
+        }
+
+        private void CopyAdditionalFiles(FolderGroup folderGroup)
+        {
+            var location = @"C:\Users\Mert\Desktop\MM_RAPOR\ALTLIK"; // TODO: FIRAT
+            foreach (var group in folderGroup.Paths)
+            {
+                string folderName;
+
+                // Extract the folder name from the group path
+                string groupFolderName = Path.GetFileName(group);
+
+                // Check if the group ends with "-{char}"
+                 if (groupFolderName.Length > 0 &&
+                    groupFolderName.Contains("-") &&
+                    groupFolderName.LastIndexOf("-") == groupFolderName.Length - 2)
+                {
+                    // If it ends with "-{char}", include the block in the folder name
+                    var block = groupFolderName.Split("-").Last();
+                    folderName = $"{folderGroup.TmNo}_M{folderGroup.BuildingCode}-{folderGroup.BuildingTmId}-{block}";
+                }
+                else
+                {
+                    // Otherwise, use the name without a block
+                    folderName = $"{folderGroup.TmNo}_M{folderGroup.BuildingCode}-{folderGroup.BuildingTmId}";
+                }
+                var contentsToCopy = Path.Combine(location, folderName);
+
+                // Check if source directory exists
+                if (Directory.Exists(contentsToCopy))
+                {
+                    // Get all files from the source directory
+                    string[] filesToCopy = Directory.GetFiles(contentsToCopy);
+
+                    // Create destination directory if it doesn't exist
+                    if (!Directory.Exists(group))
+                    {
+                        Directory.CreateDirectory(group);
+                    }
+
+                    // Copy each file to the destination
+                    int newFiles = 0;
+                    int overwrittenFiles = 0;
+
+                    foreach (string file in filesToCopy)
+                    {
+                        string fileName = Path.GetFileName(file);
+                        string destFile = Path.Combine(group, fileName);
+
+                        bool fileExists = File.Exists(destFile);
+
+                        // Copy the file, overwrite if exists
+                        File.Copy(file, destFile, true);
+
+                        if (fileExists)
+                        {
+                            overwrittenFiles++;
+                        }
+                        else
+                        {
+                            newFiles++;
+                        }
+                    }
+
+                    if (overwrittenFiles > 0)
+                    {
+                        Console.WriteLine($"Copied {newFiles} new files and overwrote {overwrittenFiles} existing files in {group}");
+                    }
+                    else
+                    {
+                        Console.WriteLine($"Copied {newFiles} files to {group}");
+                    }
+                }
+                else
+                {
+                    Console.WriteLine($"Source directory not found: {contentsToCopy}");
+                }
+            }
         }
     }
 

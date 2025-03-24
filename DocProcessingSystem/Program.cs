@@ -301,8 +301,8 @@ namespace DocProcessingSystem
             // Get folder paths from arguments or use defaults
             string parametricsFolder = @"C:\Users\Mert\Desktop\testing\Parametric";
             string deterministicsFolder = @"C:\Users\Mert\Desktop\testing\Deterministic";
-            string post2008 = @"C:\Users\Mert\Desktop\Fırat Report Revision\MM_RAPOR\WORD";
-            string analysisFolder = @"C:\Users\Mert\Desktop\Fırat Report Revision\MM_RAPOR\ANALİZ";
+            string post2008 = @"C:\Users\Mert\Desktop\Fırat Report Revision\MM_RAPOR\WORD"; // TODO: FIRAT
+            string analysisFolder = @"C:\Users\Mert\Desktop\Fırat Report Revision\MM_RAPOR\ANALİZ"; // TODO: FIRAT
 
             using (var converter = new WordToPdfConverter())
             using (var merger = new PdfMergerService())
