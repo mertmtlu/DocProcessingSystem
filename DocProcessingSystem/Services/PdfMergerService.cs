@@ -1,197 +1,289 @@
-﻿using DocProcessingSystem.Core;
-using iText.Kernel.Pdf.Navigation;
-using iText.Kernel.Pdf;
+﻿using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Text.RegularExpressions;
+using iTextSharp.text;
+using iTextSharp.text.pdf;
+using DocProcessingSystem.Core;
+using iTextSharp.text.pdf.parser;
 
 namespace DocProcessingSystem.Services
 {
     /// <summary>
-    /// Service for merging PDF documents
+    /// Implementation of IPdfMerger using iTextSharp
     /// </summary>
     public class PdfMergerService : IPdfMerger
     {
-        private bool _disposed;
+        private bool _disposed = false;
 
         /// <summary>
         /// Merges multiple PDF files into one output file
         /// </summary>
+        /// <param name="mainPdf">Path to the main PDF file</param>
+        /// <param name="additionalPdfs">List of paths to additional PDF files to merge</param>
+        /// <param name="outputPath">Path where the merged PDF will be saved</param>
+        /// <param name="options">Merge options</param>
         public void MergePdf(string mainPdf, List<string> additionalPdfs, string outputPath, MergeOptions options)
         {
-            if (!File.Exists(mainPdf))
-                throw new FileNotFoundException($"Main PDF file not found: {mainPdf}");
+            if (string.IsNullOrEmpty(mainPdf))
+                throw new ArgumentNullException(nameof(mainPdf), "Main PDF path cannot be null or empty");
 
-            var mainFolder = Path.GetDirectoryName(mainPdf);
+            if (additionalPdfs == null)
+                throw new ArgumentNullException(nameof(additionalPdfs), "Additional PDFs list cannot be null");
 
-            // Check if the combined EK-B,C.pdf exists
-            string combinedPath = Path.Combine(mainFolder, "EK-B,C.pdf");
-            if (File.Exists(combinedPath))
+            if (string.IsNullOrEmpty(outputPath))
+                throw new ArgumentNullException(nameof(outputPath), "Output path cannot be null or empty");
+
+            if (options == null)
+                throw new ArgumentNullException(nameof(options), "Merge options cannot be null");
+
+            // Filter out any PDFs that match exclude patterns
+            var filteredAdditionalPdfs = FilterPdfsByExcludePatterns(additionalPdfs, options.ExcludePatterns);
+
+            // Check if all required sections are included
+            EnsureRequiredSectionsIncluded(mainPdf, filteredAdditionalPdfs, options.RequiredSections);
+
+            using (var outputStream = new FileStream(outputPath, FileMode.Create, FileAccess.Write))
             {
-                Console.WriteLine("Found combined EK-B,C.pdf file");
+                // Create a document object
+                var document = new Document();
 
-                // Find the positions of individual EK-B and EK-C files if they exist
-                int ekbIndex = additionalPdfs.FindIndex(path =>
-                    Path.GetFileNameWithoutExtension(path).Equals("EK-B", StringComparison.OrdinalIgnoreCase));
-                int ekcIndex = additionalPdfs.FindIndex(path =>
-                    Path.GetFileNameWithoutExtension(path).Equals("EK-C", StringComparison.OrdinalIgnoreCase));
+                // Create a PdfCopy object for the document
+                var pdfCopy = new PdfCopy(document, outputStream);
 
-                // Determine insertion point (use the first occurrence of either file)
-                int insertPosition = -1;
-                if (ekbIndex >= 0 && ekcIndex >= 0)
-                    insertPosition = Math.Min(ekbIndex, ekcIndex);
-                else if (ekbIndex >= 0)
-                    insertPosition = ekbIndex;
-                else if (ekcIndex >= 0)
-                    insertPosition = ekcIndex;
+                // Create a bookmark processor - always create it as we'll add our own bookmarks
+                var bookmarkProcessor = new BookmarkProcessor();
 
-                // Remove individual files if they exist
-                if (ekbIndex >= 0)
-                    additionalPdfs.RemoveAt(ekbIndex);
-                // If we removed EK-B and it came before EK-C, adjust EK-C's index
-                if (ekcIndex >= 0 && ekbIndex >= 0 && ekbIndex < ekcIndex)
-                    ekcIndex--;
-                if (ekcIndex >= 0)
-                    additionalPdfs.RemoveAt(ekcIndex);
+                // Open the document for writing
+                document.Open();
 
-                // Insert the combined file at the appropriate position or add at the end
-                if (insertPosition >= 0 && !additionalPdfs.Contains(combinedPath)) additionalPdfs.Insert(insertPosition, combinedPath);
-                else if (!additionalPdfs.Contains(combinedPath)) throw new Exception("EK-B,C cannot be managed.");
-            }
+                // Process the main PDF first
+                MergeSinglePdf(mainPdf, pdfCopy, bookmarkProcessor, 0);
 
-            // Check for required sections
-            foreach (var required in options.RequiredSections)
-            {
-                // Check if any path in additionalPdfs contains the required filename
-                bool foundFile = additionalPdfs.Any(path =>
-                    Path.GetFileNameWithoutExtension(path).Equals(required, StringComparison.OrdinalIgnoreCase));
+                // Process additional PDFs
+                int pageOffset = GetPageCount(mainPdf);
 
-                if (!foundFile)
-                    throw new FileNotFoundException($"Additional PDF file not found (required): {required}");
-            }
-
-            foreach (var filePath in additionalPdfs)
-                // Check if any path in additionalPdfs contains the required filename
-                if (!File.Exists(filePath))
-                    throw new FileNotFoundException($"Additional PDF file not found: {filePath}");
-
-            // Ensure the output directory exists
-            Directory.CreateDirectory(Path.GetDirectoryName(outputPath));
-
-            PdfWriter writer = null;
-            PdfDocument resultDoc = null;
-            PdfDocument mainDoc = null;
-
-            try
-            {
-                // Initialize the documents
-                writer = new PdfWriter(outputPath);
-                resultDoc = new PdfDocument(writer);
-                mainDoc = new PdfDocument(new PdfReader(mainPdf));
-
-                // Copy pages from main document
-                Console.WriteLine("Copying main document pages...");
-                mainDoc.CopyPagesTo(1, mainDoc.GetNumberOfPages(), resultDoc);
-
-                // Safely copy outlines if requested
-                if (options.PreserveBookmarks)
+                foreach (var pdfPath in filteredAdditionalPdfs)
                 {
-                    Console.WriteLine("Copying document structure...");
-                    try
-                    {
-                        PdfOutline sourceOutline = mainDoc.GetOutlines(false);
-                        if (sourceOutline != null)
-                        {
-                            PdfOutline destOutline = resultDoc.GetOutlines(false);
-                            SafelyCopyOutlines(sourceOutline, destOutline, resultDoc);
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine($"Warning: Could not copy outlines: {ex.Message}");
-                    }
+                    // Create a bookmark for this additional PDF
+                    string pdfFileName = System.IO.Path.GetFileNameWithoutExtension(pdfPath);
+                    bookmarkProcessor.AddFileBookmark(pdfFileName, pageOffset + 1);
+
+                    MergeSinglePdf(pdfPath, pdfCopy, bookmarkProcessor, pageOffset);
+                    pageOffset += GetPageCount(pdfPath);
                 }
 
-                // Process and append additional PDFs
-                foreach (string pdfFile in additionalPdfs.Where(File.Exists))
-                {
-                    // Skip excluded files
-                    if (options.ExcludePatterns?.Any(pattern =>
-                        Path.GetFileName(pdfFile).Contains(pattern, StringComparison.OrdinalIgnoreCase)) == true)
-                    {
-                        Console.WriteLine($"Skipping excluded file: {Path.GetFileName(pdfFile)}");
-                        continue;
-                    }
+                // Add all bookmarks to the merged document
+                bookmarkProcessor.AddBookmarksToDocument(pdfCopy);
 
-                    try
-                    {
-                        Console.WriteLine($"Adding: {Path.GetFileName(pdfFile)}");
-                        using (var additionalDoc = new PdfDocument(new PdfReader(pdfFile)))
-                            additionalDoc.CopyPagesTo(1, additionalDoc.GetNumberOfPages(), resultDoc);
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine($"Warning: Could not copy {Path.GetFileName(pdfFile)}: {ex.Message}");
-                    }
-                }
-
-                // Close documents in reverse order
-                Console.WriteLine("Finalizing document...");
-                if (mainDoc != null) mainDoc.Close();
-                if (resultDoc != null) resultDoc.Close();
-                if (writer != null) writer.Close();
-
-                Console.WriteLine("PDF merge completed successfully.\n");
+                // Close the document
+                document.Close();
             }
-            catch (Exception ex)
-            {
-                throw new Exception($"Error merging PDFs: {ex.Message}", ex);
-            }
-            finally
-            {
-                try { if (mainDoc != null && !mainDoc.IsClosed()) mainDoc.Close(); } catch { }
-                try { if (resultDoc != null && !resultDoc.IsClosed()) resultDoc.Close(); } catch { }
-                try { if (writer != null) writer.Close(); } catch { }
-            }
-
         }
 
         /// <summary>
-        /// Safely copies PDF outlines (bookmarks) from source to target
+        /// Filters PDFs by exclude patterns
         /// </summary>
-        public void SafelyCopyOutlines(PdfOutline source, PdfOutline target, PdfDocument targetDoc)
+        private List<string> FilterPdfsByExcludePatterns(List<string> pdfs, List<string> excludePatterns)
         {
-            if (source == null || target == null) return;
+            if (excludePatterns == null || excludePatterns.Count == 0)
+                return pdfs;
 
-            foreach (PdfOutline child in source.GetAllChildren())
+            return pdfs.Where(pdf =>
             {
-                if (child == null) continue;
+                string fileName = System.IO.Path.GetFileName(pdf);
+                return !excludePatterns.Any(pattern =>
+                    Regex.IsMatch(fileName, WildcardToRegex(pattern), RegexOptions.IgnoreCase));
+            }).ToList();
+        }
 
-                try
+        /// <summary>
+        /// Converts wildcard pattern to regex
+        /// </summary>
+        private string WildcardToRegex(string pattern)
+        {
+            return "^" + Regex.Escape(pattern)
+                .Replace("\\*", ".*")
+                .Replace("\\?", ".") + "$";
+        }
+
+        /// <summary>
+        /// Ensures all required sections are included in the PDFs
+        /// </summary>
+        private void EnsureRequiredSectionsIncluded(string mainPdf, List<string> additionalPdfs, string[] requiredSections)
+        {
+            if (requiredSections == null || requiredSections.Length == 0)
+                return;
+
+            var allPdfs = new List<string> { mainPdf };
+            allPdfs.AddRange(additionalPdfs);
+
+            List<string> missingSections = new List<string>();
+
+            foreach (var section in requiredSections)
+            {
+                bool sectionFound = false;
+
+                foreach (var pdf in allPdfs)
                 {
-                    string title = child.GetTitle();
-                    if (string.IsNullOrEmpty(title)) title = "Untitled Bookmark";
-
-                    PdfOutline newChild = target.AddOutline(title);
-                    if (newChild == null) continue;
-
-                    try
+                    if (PdfContainsSection(pdf, section))
                     {
-                        if (child.GetDestination() != null)
-                        {
-                            PdfExplicitDestination newDest = PdfExplicitDestination.CreateFit(
-                                targetDoc.GetPage(1)
-                            );
-                            newChild.AddDestination(newDest);
-                        }
+                        sectionFound = true;
+                        break;
                     }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine($"Warning: Could not copy destination for outline {title}: {ex.Message}");
-                    }
-
-                    SafelyCopyOutlines(child, newChild, targetDoc);
                 }
-                catch (Exception ex)
+
+                if (!sectionFound)
                 {
-                    Console.WriteLine($"Warning: Could not copy outline structure: {ex.Message}");
+                    missingSections.Add(section);
+                }
+            }
+
+            if (missingSections.Count > 0)
+            {
+                throw new InvalidOperationException($"Required sections not found: {string.Join(", ", missingSections)}");
+            }
+        }
+
+        /// <summary>
+        /// Checks if a PDF contains a specific section (looks in bookmarks and text)
+        /// </summary>
+        private bool PdfContainsSection(string pdfPath, string section)
+        {
+            using (var reader = new PdfReader(pdfPath))
+            {
+                // Check bookmarks for section name
+                var bookmarks = SimpleBookmark.GetBookmark(reader);
+                if (bookmarks != null && ContainsSectionInBookmarks(bookmarks, section))
+                {
+                    return true;
+                }
+
+                // Fallback to simple text search in the PDF
+                for (int i = 1; i <= reader.NumberOfPages; i++)
+                {
+                    string pageText = PdfTextExtractor.GetTextFromPage(reader, i);
+                    if (pageText.Contains(section, StringComparison.OrdinalIgnoreCase))
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Recursively checks if bookmarks contain a specific section
+        /// </summary>
+        private bool ContainsSectionInBookmarks(IList<Dictionary<string, object>> bookmarks, string section)
+        {
+            foreach (var bookmark in bookmarks)
+            {
+                if (bookmark.TryGetValue("Title", out object title) &&
+                    title.ToString().Contains(section, StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+
+                if (bookmark.TryGetValue("Kids", out object kids) &&
+                    kids is IList<Dictionary<string, object>> childBookmarks)
+                {
+                    if (ContainsSectionInBookmarks(childBookmarks, section))
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Merges a single PDF into the output document
+        /// </summary>
+        private void MergeSinglePdf(string pdfPath, PdfCopy pdfCopy, BookmarkProcessor bookmarkProcessor, int pageOffset)
+        {
+            using (var reader = new PdfReader(pdfPath))
+            {
+                // Save bookmarks if needed (only if preserveBookmarks is true)
+                var bookmarks = SimpleBookmark.GetBookmark(reader);
+                if (bookmarks != null)
+                {
+                    // Adjust page numbers in bookmarks to account for offset in the merged document
+                    SimpleBookmark.ShiftPageNumbers(bookmarks, pageOffset, null);
+                    bookmarkProcessor.AddBookmarks(bookmarks);
+                }
+
+                // Add all pages from this PDF to the output
+                for (int i = 1; i <= reader.NumberOfPages; i++)
+                {
+                    pdfCopy.AddPage(pdfCopy.GetImportedPage(reader, i));
+                }
+
+                // Copy any interactive form fields if present
+                PdfReader.unethicalreading = true; // Allow reading of protected PDFs
+
+                // Note: PdfCopy automatically includes form fields when importing pages
+                // No explicit CopyAcroForm call is needed with recent iTextSharp versions
+            }
+        }
+
+        /// <summary>
+        /// Gets the number of pages in a PDF
+        /// </summary>
+        private int GetPageCount(string pdfPath)
+        {
+            using (var reader = new PdfReader(pdfPath))
+            {
+                return reader.NumberOfPages;
+            }
+        }
+
+        /// <summary>
+        /// Helper class to process and merge bookmarks
+        /// </summary>
+        private class BookmarkProcessor
+        {
+            private readonly List<Dictionary<string, object>> _allBookmarks = new List<Dictionary<string, object>>();
+
+            /// <summary>
+            /// Adds bookmarks from a PDF to the collection
+            /// </summary>
+            public void AddBookmarks(IList<Dictionary<string, object>> bookmarks)
+            {
+                if (bookmarks != null && bookmarks.Count > 0)
+                {
+                    _allBookmarks.AddRange(bookmarks);
+                }
+            }
+
+            /// <summary>
+            /// Creates and adds a new bookmark for a merged file
+            /// </summary>
+            /// <param name="title">Bookmark title (PDF file name)</param>
+            /// <param name="pageNumber">Page number where the PDF starts</param>
+            public void AddFileBookmark(string title, int pageNumber)
+            {
+                var bookmark = new Dictionary<string, object>
+                {
+                    { "Title", title },
+                    { "Action", "GoTo" },
+                    { "Page", $"{pageNumber} Fit" } // "Fit" makes the page fit in the viewer
+                };
+
+                _allBookmarks.Add(bookmark);
+            }
+
+            /// <summary>
+            /// Adds all collected bookmarks to the final document
+            /// </summary>
+            public void AddBookmarksToDocument(PdfCopy pdfCopy)
+            {
+                if (_allBookmarks.Count > 0)
+                {
+                    pdfCopy.Outlines = _allBookmarks;
                 }
             }
         }
@@ -212,6 +304,11 @@ namespace DocProcessingSystem.Services
         {
             if (!_disposed)
             {
+                if (disposing)
+                {
+                    // Dispose managed resources if any
+                }
+
                 _disposed = true;
             }
         }

@@ -19,5 +19,10 @@
         /// Whether to preserve bookmarks from source documents
         /// </summary>
         public bool PreserveBookmarks { get; set; } = true;
+
+        /// <summary>
+        /// Whether to create a new bookmark for each additional PDF
+        /// </summary>
+        public bool CreateBookmarksForAdditionalPdfs { get; set; } = false;
     }
 }

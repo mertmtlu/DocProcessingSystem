@@ -217,7 +217,7 @@ namespace DocProcessingSystem.Services
         public override void ProcessDocuments(string sourceFolder, ref List<FolderGroup> analysisGroups, in IPdfMerger merger)
         {
             // Process the specific code first
-            //CreateEkFiles(sourceFolder, ref analysisGroups, in merger);
+            CreateEkFiles(sourceFolder, ref analysisGroups, in merger);
 
             // Then call the base implementation
             base.ProcessDocuments(sourceFolder, ref analysisGroups, in merger);
@@ -245,18 +245,21 @@ namespace DocProcessingSystem.Services
                 {
                     case 1:
                         additionalPdfs.Add(GetEkAFile(folderGroup));
-                        additionalPdfs.Add(Path.Combine(post2008CoverPath, "EK-B.pdf"));
-                        additionalPdfs.Add(Path.Combine(folderGroup.MainFolder, "Kapak_DD2.pdf"));
-                        additionalPdfs.Add(Path.Combine(folderGroup.MainFolder, "2_Tespit_DD2.pdf"));
+                        //additionalPdfs.Add(Path.Combine(post2008CoverPath, "EK-B.pdf"));
+                        //additionalPdfs.Add(Path.Combine(folderGroup.MainFolder, "Kapak_DD2.pdf"));
+                        //additionalPdfs.Add(Path.Combine(folderGroup.MainFolder, "2_Tespit_DD2.pdf"));
+                        additionalPdfs.Add(Path.Combine(folderGroup.MainFolder, "EK-B.pdf"));
                         break;
                     case 2:
                         additionalPdfs.Add(GetEkAFile(folderGroup));
-                        additionalPdfs.Add(Path.Combine(post2008CoverPath, "EK-B_A-Blok.pdf"));
-                        additionalPdfs.Add(Path.Combine(folderGroup.MainFolder, "Kapak_DD2.pdf"));
-                        additionalPdfs.Add(Path.Combine(folderGroup.MainFolder, "2_Tespit_DD2.pdf"));
-                        additionalPdfs.Add(Path.Combine(post2008CoverPath, "EK-B_B-Blok.pdf"));
-                        additionalPdfs.Add(Path.Combine(folderGroup.Paths[1], "Kapak_DD2.pdf"));
-                        additionalPdfs.Add(Path.Combine(folderGroup.Paths[1], "2_Tespit_DD2.pdf"));
+                        additionalPdfs.Add(Path.Combine(folderGroup.MainFolder, "EK-B.pdf"));
+                        additionalPdfs.Add(Path.Combine(folderGroup.Paths[1], "EK-C.pdf"));
+                        //additionalPdfs.Add(Path.Combine(post2008CoverPath, "EK-B_A-Blok.pdf"));
+                        //additionalPdfs.Add(Path.Combine(folderGroup.MainFolder, "Kapak_DD2.pdf"));
+                        //additionalPdfs.Add(Path.Combine(folderGroup.MainFolder, "2_Tespit_DD2.pdf"));
+                        //additionalPdfs.Add(Path.Combine(post2008CoverPath, "EK-B_B-Blok.pdf"));
+                        //additionalPdfs.Add(Path.Combine(folderGroup.Paths[1], "Kapak_DD2.pdf"));
+                        //additionalPdfs.Add(Path.Combine(folderGroup.Paths[1], "2_Tespit_DD2.pdf"));
                         break;
                     // TODO: Add cases for more blocks
 
@@ -270,30 +273,33 @@ namespace DocProcessingSystem.Services
                 {
                     case 1:
                         additionalPdfs.Add(GetEkAFile(folderGroup));
-                        additionalPdfs.Add(Path.Combine(post2008CoverPath, "EK-B.pdf"));
-                        additionalPdfs.Add(Path.Combine(folderGroup.MainFolder, "Kapak_DD1.pdf"));
-                        additionalPdfs.Add(Path.Combine(folderGroup.MainFolder, "2_Tespit_DD1.pdf"));
-                        additionalPdfs.Add(Path.Combine(folderGroup.MainFolder, "Kapak_DD2.pdf"));
-                        additionalPdfs.Add(Path.Combine(folderGroup.MainFolder, "2_Tespit_DD2.pdf"));
-                        additionalPdfs.Add(Path.Combine(folderGroup.MainFolder, "Kapak_DD3.pdf"));
-                        additionalPdfs.Add(Path.Combine(folderGroup.MainFolder, "2_Tespit_DD3.pdf"));
+                        //additionalPdfs.Add(Path.Combine(post2008CoverPath, "EK-B.pdf"));
+                        //additionalPdfs.Add(Path.Combine(folderGroup.MainFolder, "Kapak_DD1.pdf"));
+                        //additionalPdfs.Add(Path.Combine(folderGroup.MainFolder, "2_Tespit_DD1.pdf"));
+                        //additionalPdfs.Add(Path.Combine(folderGroup.MainFolder, "Kapak_DD2.pdf"));
+                        //additionalPdfs.Add(Path.Combine(folderGroup.MainFolder, "2_Tespit_DD2.pdf"));
+                        //additionalPdfs.Add(Path.Combine(folderGroup.MainFolder, "Kapak_DD3.pdf"));
+                        //additionalPdfs.Add(Path.Combine(folderGroup.MainFolder, "2_Tespit_DD3.pdf"));
+                        additionalPdfs.Add(Path.Combine(folderGroup.MainFolder, "EK-B.pdf"));
                         break;
                     case 2:
                         additionalPdfs.Add(GetEkAFile(folderGroup));
-                        additionalPdfs.Add(Path.Combine(post2008CoverPath, "EK-B_A-Blok.pdf"));
-                        additionalPdfs.Add(Path.Combine(folderGroup.MainFolder, "Kapak_DD1.pdf"));
-                        additionalPdfs.Add(Path.Combine(folderGroup.MainFolder, "2_Tespit_DD1.pdf"));
-                        additionalPdfs.Add(Path.Combine(folderGroup.MainFolder, "Kapak_DD2.pdf"));
-                        additionalPdfs.Add(Path.Combine(folderGroup.MainFolder, "2_Tespit_DD2.pdf"));
-                        additionalPdfs.Add(Path.Combine(folderGroup.MainFolder, "Kapak_DD3.pdf"));
-                        additionalPdfs.Add(Path.Combine(folderGroup.MainFolder, "2_Tespit_DD3.pdf"));
-                        additionalPdfs.Add(Path.Combine(post2008CoverPath, "EK-B_B-Blok.pdf"));
-                        additionalPdfs.Add(Path.Combine(folderGroup.Paths[1], "Kapak_DD1.pdf"));
-                        additionalPdfs.Add(Path.Combine(folderGroup.Paths[1], "2_Tespit_DD1.pdf"));
-                        additionalPdfs.Add(Path.Combine(folderGroup.Paths[1], "Kapak_DD2.pdf"));
-                        additionalPdfs.Add(Path.Combine(folderGroup.Paths[1], "2_Tespit_DD2.pdf"));
-                        additionalPdfs.Add(Path.Combine(folderGroup.Paths[1], "Kapak_DD3.pdf"));
-                        additionalPdfs.Add(Path.Combine(folderGroup.Paths[1], "2_Tespit_DD3.pdf"));
+                        additionalPdfs.Add(Path.Combine(folderGroup.MainFolder, "EK-B.pdf"));
+                        additionalPdfs.Add(Path.Combine(folderGroup.Paths[1], "EK-C.pdf"));
+                        //additionalPdfs.Add(Path.Combine(post2008CoverPath, "EK-B_A-Blok.pdf"));
+                        //additionalPdfs.Add(Path.Combine(folderGroup.MainFolder, "Kapak_DD1.pdf"));
+                        //additionalPdfs.Add(Path.Combine(folderGroup.MainFolder, "2_Tespit_DD1.pdf"));
+                        //additionalPdfs.Add(Path.Combine(folderGroup.MainFolder, "Kapak_DD2.pdf"));
+                        //additionalPdfs.Add(Path.Combine(folderGroup.MainFolder, "2_Tespit_DD2.pdf"));
+                        //additionalPdfs.Add(Path.Combine(folderGroup.MainFolder, "Kapak_DD3.pdf"));
+                        //additionalPdfs.Add(Path.Combine(folderGroup.MainFolder, "2_Tespit_DD3.pdf"));
+                        //additionalPdfs.Add(Path.Combine(post2008CoverPath, "EK-B_B-Blok.pdf"));
+                        //additionalPdfs.Add(Path.Combine(folderGroup.Paths[1], "Kapak_DD1.pdf"));
+                        //additionalPdfs.Add(Path.Combine(folderGroup.Paths[1], "2_Tespit_DD1.pdf"));
+                        //additionalPdfs.Add(Path.Combine(folderGroup.Paths[1], "Kapak_DD2.pdf"));
+                        //additionalPdfs.Add(Path.Combine(folderGroup.Paths[1], "2_Tespit_DD2.pdf"));
+                        //additionalPdfs.Add(Path.Combine(folderGroup.Paths[1], "Kapak_DD3.pdf"));
+                        //additionalPdfs.Add(Path.Combine(folderGroup.Paths[1], "2_Tespit_DD3.pdf"));
                         break;
                     // TODO: Add cases for more blocks
 
@@ -340,6 +346,9 @@ namespace DocProcessingSystem.Services
             }
 
             if (ekFile == null) throw new ArgumentNullException("Could not find EK-A file");
+
+            string destinationPath = Path.Combine(folderGroup.MainFolder, "EK-A.pdf");
+            File.Copy(ekFile, destinationPath, true);
 
             return ekFile;
         }

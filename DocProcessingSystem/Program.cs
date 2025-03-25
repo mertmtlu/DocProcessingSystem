@@ -8,9 +8,14 @@ namespace DocProcessingSystem
 {
     public class Program
     {
-        /// <summary>
-        /// Main application entry method
-        /// </summary>
+        ///// <summary>
+        ///// Main application entry method
+        ///// </summary>
+        //static async Task Main(string[] args) // Async
+        //{
+        //     await ConvertWordToPdfAsync(@"C:\Users\Mert\Desktop\iklim raporu düzenleme\final\reports", @"C:\Users\Mert\Desktop\REPORTS\MERT IKLİM", false);
+        //}
+
         static void Main(string[] args)
         {
             ProcessDocuments();
@@ -82,7 +87,7 @@ namespace DocProcessingSystem
 
         public static void RenameWordFiles()
         {
-            var inputFolder = @"C:\Users\Mert\Desktop\Selin Report Revision\v5\v5 - Kopya";
+            var inputFolder = @"C:\Users\Mert\Desktop\iklim raporu düzenleme\final\reports";
             var excelFile = @"C:\Users\Mert\Desktop\SZL-2_TM_KISA_TR_ISIM_LISTE_20250319.xlsx";
 
             var tmNameJson = ConvertExcelToDictionary(excelFile);
@@ -93,7 +98,71 @@ namespace DocProcessingSystem
             {
                 if (wordDocument.Contains("M00"))
                 {
-                    
+                    List<string> preferences = new()
+                    {
+                        "IKL",
+                        "GEO",
+                        "FAY",
+                        "ZEV"
+                    };
+                    Dictionary<string, string> mapper = new()
+                    {
+                        { "ZEV", "ZEMIN ETUT-VERI"},
+                        { "GEO", "ZEMIN ETUT-GEOTEKNIK"},
+                        { "FAY", "DIRIFAY"},
+                        { "IKL", "IKLIM DEGISIKLIGI"},
+                    };
+
+                    foreach (var preference in preferences)
+                    {
+                        if (wordDocument.Contains($"-{preference}-"))
+                        {
+                            try
+                            {
+                                var (tmNo, buildingCode, buildingTmId) = FolderHelper.ExtractParts(wordDocument, preference);
+
+                                // Get the shortened name for this TM number
+                                var shortenedName = FindShortenedName(tmNo, tmNameJson)?.ToString();
+
+                                if (shortenedName == null) throw new ArgumentNullException("Shortened Name Not Found.");
+
+                                // Split the TM number to get area ID and TM ID
+                                var areaId = tmNo.Split("-")[0];
+                                var tmId = tmNo.Split("-")[1];
+
+                                var newName = $"TEI-B{areaId}-TM-{tmId}-{preference}-M00-00_NT ({shortenedName}-{mapper[preference]}).docx";
+
+                                // Get the directory path from the original document
+                                string directoryPath = Path.GetDirectoryName(wordDocument);
+
+                                // Combine directory path with new filename
+                                string newFilePath = Path.Combine(directoryPath, newName);
+
+                                // Rename the file
+                                if (File.Exists(newFilePath))
+                                {
+                                    Console.WriteLine($"Warning: A file with the name '{newName}' already exists. Skipping rename operation for {wordDocument}");
+                                }
+                                else
+                                {
+                                    File.Move(wordDocument, newFilePath);
+                                    Console.WriteLine($"Successfully renamed: {Path.GetFileName(wordDocument)} -> {newName}");
+                                }
+                            }
+                            catch (KeyNotFoundException)
+                            {
+                                Console.WriteLine($"Error: Could not find building code in dictionary for document: {wordDocument}");
+                            }
+                            catch (IndexOutOfRangeException)
+                            {
+                                Console.WriteLine($"Error: Invalid TM number format in document: {wordDocument}");
+                            }
+                            catch (Exception ex)
+                            {
+                                Console.WriteLine($"Error processing document {wordDocument}: {ex.Message}");
+                            }
+                        }
+                    }
                 }
                 else
                 {
@@ -264,7 +333,7 @@ namespace DocProcessingSystem
 
                     var outputPath = Path.Combine(outputFolderPath, baseName + ".pdf");
 
-                    converter.Convert(file, outputPath, saveChanges);
+                    converter.Convert(file, outputPath, saveChanges, false);
                 }
             }
         }
@@ -295,6 +364,47 @@ namespace DocProcessingSystem
             }
 
         }
+        
+        public static async Task ConvertWordToPdfAsync(string inputFolderPath, string outputFolderPath, bool saveChanges, int maxParallel = 8)
+        {
+            // Get all Word files asynchronously
+            var wordFiles = await DirectoryExtensions.GetFilesAsync(inputFolderPath, "*.docx", SearchOption.AllDirectories);
+
+            // Create progress reporting
+            var progress = new Progress<(string FileName, int Completed, int Total)>(update =>
+            {
+                Console.WriteLine($"Converted {update.FileName} - {update.Completed} of {update.Total} completed");
+            });
+
+            // Use cancellation token to support cancellation
+            using (var cts = new CancellationTokenSource())
+            using (var converter = new ParallelWordToPdfConverter(maxParallel))
+            {
+                Console.WriteLine($"Starting conversion of {wordFiles.Length} files with {maxParallel} parallel workers");
+
+                try
+                {
+                    // Convert all files in parallel with controlled concurrency
+                    await converter.ConvertMultipleAsync(
+                        wordFiles,
+                        outputFolderPath,
+                        saveChanges,
+                        progress,
+                        cts.Token);
+
+                    Console.WriteLine("All files converted successfully");
+                }
+                catch (OperationCanceledException)
+                {
+                    Console.WriteLine("Operation was cancelled");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error during conversion: {ex.Message}");
+                }
+            }
+        }
+
 
         static void ProcessDocuments()
         {

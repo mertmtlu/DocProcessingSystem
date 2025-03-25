@@ -148,6 +148,44 @@ namespace DocProcessingSystem.Models
             return (null, null, null);
         }
 
+        public static (string tmNo, string buildingCode, string buildingTmId) ExtractParts(string folderName, string preferance)
+        {
+            // Standard pattern: digits-digits-M+digits(-digits)
+            string patternStandard = @"^(\d{1,2}-\d{2})\s*-?M(\d{2})(?:-(\d{2}|\d{1}))?(?:-([A-Za-z0-9]+))?$";
+
+            // TEI pattern: TEI-B+digits-TM-digits-DIR-M+digits(-digits)
+            string patternTei = $@"TEI-B(\d{{2}})-TM-(\d{{2}})-{preferance}-M(\d{{2}})(?:-(\d{{2}}|\d{{1}}))?";
+
+            // Try the standard pattern first
+            Match match = Regex.Match(folderName, patternStandard);
+            if (match.Success)
+            {
+                string tmNo = match.Groups[1].Value;                   // e.g., "18-10"
+                string buildingCode = match.Groups[2].Value;           // e.g., "02"
+                string buildingTmId = match.Groups[3].Success
+                    ? match.Groups[3].Value
+                    : "01";                                            // Default to 01 if not specified
+
+                return (tmNo, buildingCode, buildingTmId);
+            }
+
+            // Try the TEI pattern
+            match = Regex.Match(folderName, patternTei);
+            if (match.Success)
+            {
+                string buildingCode = match.Groups[3].Value;           // e.g., "02"
+                string tmNo = $"{match.Groups[1].Value}-{match.Groups[2].Value}"; // e.g., "05-13"
+                string buildingTmId = match.Groups[4].Success
+                    ? match.Groups[4].Value
+                    : "01";                                            // Default to 01 if not specified
+
+                return (tmNo, buildingCode, buildingTmId);
+            }
+
+            return (null, null, null);
+        }
+
+
         /// <summary>
         /// Extracts the block identifier from a folder name, if present
         /// </summary>

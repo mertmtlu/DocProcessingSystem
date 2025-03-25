@@ -33,7 +33,7 @@ namespace DocProcessingSystem.Services
         /// <summary>
         /// Converts a Word document to PDF format and copies the original file to the output location
         /// </summary>
-        public void Convert(string inputPath, string outputPath, bool saveWordChanges)
+        public void Convert(string inputPath, string outputPath, bool saveWordChanges, bool copyWord = true)
         {
             if (!File.Exists(inputPath))
                 throw new FileNotFoundException($"Input file not found: {inputPath}");
@@ -60,7 +60,7 @@ namespace DocProcessingSystem.Services
                     Item: WdExportItem.wdExportDocumentContent,
                     IncludeDocProps: true,
                     KeepIRM: true,
-                    CreateBookmarks: WdExportCreateBookmarks.wdExportCreateWordBookmarks,
+                    CreateBookmarks: WdExportCreateBookmarks.wdExportCreateHeadingBookmarks,
                     DocStructureTags: true,
                     BitmapMissingFonts: true,
                     UseISO19005_1: false
@@ -73,7 +73,7 @@ namespace DocProcessingSystem.Services
                 string destinationPath = Path.Combine(outputDirectory, originalFileName);
 
                 // Don't copy if source and destination are the same
-                if (!string.Equals(inputPath, destinationPath, StringComparison.OrdinalIgnoreCase))
+                if (!string.Equals(inputPath, destinationPath, StringComparison.OrdinalIgnoreCase) && copyWord)
                 {
                     File.Copy(inputPath, destinationPath.Replace(".docx", "_nt.docx"), true); // 'true' to overwrite if file exists
                     Console.WriteLine($"Original file copied to: {destinationPath}");
