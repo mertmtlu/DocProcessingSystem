@@ -68,7 +68,7 @@ namespace DocProcessingSystem.Services
                 {
                     // Create a bookmark for this additional PDF
                     string pdfFileName = System.IO.Path.GetFileNameWithoutExtension(pdfPath);
-                    bookmarkProcessor.AddFileBookmark(pdfFileName, pageOffset + 1);
+                    if (options.CreateBookmarksForAdditionalPdfs) bookmarkProcessor.AddFileBookmark(pdfFileName, pageOffset + 1);
 
                     MergeSinglePdf(pdfPath, pdfCopy, bookmarkProcessor, pageOffset);
                     pageOffset += GetPageCount(pdfPath);

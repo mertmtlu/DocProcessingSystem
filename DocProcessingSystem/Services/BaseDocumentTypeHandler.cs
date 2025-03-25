@@ -559,12 +559,10 @@ namespace DocProcessingSystem.Services
             foreach (var group in folderGroup.Paths)
             {
                 string folderName;
-
                 // Extract the folder name from the group path
                 string groupFolderName = Path.GetFileName(group);
-
                 // Check if the group ends with "-{char}"
-                 if (groupFolderName.Length > 0 &&
+                if (groupFolderName.Length > 0 &&
                     groupFolderName.Contains("-") &&
                     groupFolderName.LastIndexOf("-") == groupFolderName.Length - 2)
                 {
@@ -578,55 +576,80 @@ namespace DocProcessingSystem.Services
                     folderName = $"{folderGroup.TmNo}_M{folderGroup.BuildingCode}-{folderGroup.BuildingTmId}";
                 }
                 var contentsToCopy = Path.Combine(location, folderName);
-
                 // Check if source directory exists
                 if (Directory.Exists(contentsToCopy))
                 {
-                    // Get all files from the source directory
-                    string[] filesToCopy = Directory.GetFiles(contentsToCopy);
-
                     // Create destination directory if it doesn't exist
                     if (!Directory.Exists(group))
                     {
                         Directory.CreateDirectory(group);
                     }
 
-                    // Copy each file to the destination
-                    int newFiles = 0;
-                    int overwrittenFiles = 0;
+                    // Copy all files from the root of the source directory
+                    CopyFilesInDirectory(contentsToCopy, group);
 
-                    foreach (string file in filesToCopy)
+                    // Copy all subdirectories and their contents
+                    foreach (string dirPath in Directory.GetDirectories(contentsToCopy, "*", SearchOption.AllDirectories))
                     {
-                        string fileName = Path.GetFileName(file);
-                        string destFile = Path.Combine(group, fileName);
+                        string dirName = dirPath.Substring(contentsToCopy.Length + 1);
+                        string destDirPath = Path.Combine(group, dirName);
 
-                        bool fileExists = File.Exists(destFile);
-
-                        // Copy the file, overwrite if exists
-                        File.Copy(file, destFile, true);
-
-                        if (fileExists)
+                        // Create the destination subdirectory
+                        if (!Directory.Exists(destDirPath))
                         {
-                            overwrittenFiles++;
+                            Directory.CreateDirectory(destDirPath);
                         }
-                        else
-                        {
-                            newFiles++;
-                        }
+
+                        // Copy files from the current subdirectory
+                        CopyFilesInDirectory(dirPath, destDirPath);
                     }
 
-                    if (overwrittenFiles > 0)
-                    {
-                        Console.WriteLine($"Copied {newFiles} new files and overwrote {overwrittenFiles} existing files in {group}");
-                    }
-                    else
-                    {
-                        Console.WriteLine($"Copied {newFiles} files to {group}");
-                    }
+                    Console.WriteLine($"Copied all files and folders to {group}");
                 }
                 else
                 {
                     Console.WriteLine($"Source directory not found: {contentsToCopy}");
+                }
+            }
+        }
+
+        private void CopyFilesInDirectory(string sourceDir, string destDir)
+        {
+            int newFiles = 0;
+            int overwrittenFiles = 0;
+
+            // Get all files from the source directory
+            string[] filesToCopy = Directory.GetFiles(sourceDir);
+
+            // Copy each file to the destination
+            foreach (string file in filesToCopy)
+            {
+                string fileName = Path.GetFileName(file);
+                string destFile = Path.Combine(destDir, fileName);
+                bool fileExists = File.Exists(destFile);
+
+                // Copy the file, overwrite if exists
+                File.Copy(file, destFile, true);
+
+                if (fileExists)
+                {
+                    overwrittenFiles++;
+                }
+                else
+                {
+                    newFiles++;
+                }
+            }
+
+            if (filesToCopy.Length > 0)
+            {
+                if (overwrittenFiles > 0)
+                {
+                    Console.WriteLine($"Copied {newFiles} new files and overwrote {overwrittenFiles} existing files in {destDir}");
+                }
+                else
+                {
+                    Console.WriteLine($"Copied {newFiles} files to {destDir}");
                 }
             }
         }
