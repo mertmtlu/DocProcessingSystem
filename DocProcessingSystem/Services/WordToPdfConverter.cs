@@ -45,6 +45,12 @@ namespace DocProcessingSystem.Services
             Document doc = null;
             try
             {
+                if (Path.GetFileName(inputPath).Contains("~$"))
+                {
+                    Console.WriteLine($"Warning: Passed: {Path.GetFileName(inputPath)}");
+                    return;
+                }
+
                 Console.WriteLine($"Converting {Path.GetFileName(inputPath)} to PDF");
                 doc = _wordApp.Documents.Open(inputPath);
                 // Remove background from all pages

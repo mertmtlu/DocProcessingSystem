@@ -23,6 +23,6 @@
         /// <summary>
         /// Whether to create a new bookmark for each additional PDF
         /// </summary>
-        public bool CreateBookmarksForAdditionalPdfs { get; set; } = true;
+        public bool CreateBookmarksForAdditionalPdf { get; set; } = true;
     }
 }

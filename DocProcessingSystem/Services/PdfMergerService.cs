@@ -21,64 +21,115 @@ namespace DocProcessingSystem.Services
         /// Merges multiple PDF files into one output file
         /// </summary>
         /// <param name="mainPdf">Path to the main PDF file</param>
+        public void MergePdf(MergeSequence mergeSequence)
+        {
+            MergePdf(mergeSequence.MainDocument, mergeSequence.AdditionalDocuments, mergeSequence.OutputPath, mergeSequence.Options);
+        }
+
+        /// <summary>
+        /// Merges multiple PDF files into one output file
+        /// </summary>
+        /// <param name="mainPdf">Path to the main PDF file</param>
         /// <param name="additionalPdfs">List of paths to additional PDF files to merge</param>
         /// <param name="outputPath">Path where the merged PDF will be saved</param>
         /// <param name="options">Merge options</param>
+        /// <summary>
+        /// Merges a main PDF with additional PDFs and writes to the output path
+        /// </summary>
+        /// <param name="mainPdf">Path to the main PDF document</param>
+        /// <param name="additionalPdfs">List of paths to additional PDFs to append</param>
+        /// <param name="outputPath">Output path for the merged PDF</param>
+        /// <param name="options">Options for the merge operation</param>
         public void MergePdf(string mainPdf, List<string> additionalPdfs, string outputPath, MergeOptions options)
         {
             if (string.IsNullOrEmpty(mainPdf))
                 throw new ArgumentNullException(nameof(mainPdf), "Main PDF path cannot be null or empty");
-
             if (additionalPdfs == null)
                 throw new ArgumentNullException(nameof(additionalPdfs), "Additional PDFs list cannot be null");
-
             if (string.IsNullOrEmpty(outputPath))
                 throw new ArgumentNullException(nameof(outputPath), "Output path cannot be null or empty");
-
             if (options == null)
                 throw new ArgumentNullException(nameof(options), "Merge options cannot be null");
 
             // Filter out any PDFs that match exclude patterns
             var filteredAdditionalPdfs = FilterPdfsByExcludePatterns(additionalPdfs, options.ExcludePatterns);
 
-            // Check if all required sections are included
-            EnsureRequiredSectionsIncluded(mainPdf, filteredAdditionalPdfs, options.RequiredSections);
+            // Handle the case where main PDF and output path are the same
+            string tempMainPdf = mainPdf;
+            bool usingTempFile = false;
 
-            using (var outputStream = new FileStream(outputPath, FileMode.Create, FileAccess.Write))
+            try
             {
-                // Create a document object
-                var document = new Document();
-
-                // Create a PdfCopy object for the document
-                var pdfCopy = new PdfCopy(document, outputStream);
-
-                // Create a bookmark processor - always create it as we'll add our own bookmarks
-                var bookmarkProcessor = new BookmarkProcessor();
-
-                // Open the document for writing
-                document.Open();
-
-                // Process the main PDF first
-                MergeSinglePdf(mainPdf, pdfCopy, bookmarkProcessor, 0);
-
-                // Process additional PDFs
-                int pageOffset = GetPageCount(mainPdf);
-
-                foreach (var pdfPath in filteredAdditionalPdfs)
+                // Create a temporary file if mainPdf and outputPath are the same
+                if (string.Equals(System.IO.Path.GetFullPath(mainPdf), System.IO.Path.GetFullPath(outputPath), StringComparison.OrdinalIgnoreCase))
                 {
-                    // Create a bookmark for this additional PDF
-                    string pdfFileName = System.IO.Path.GetFileNameWithoutExtension(pdfPath);
-                    if (options.CreateBookmarksForAdditionalPdfs) bookmarkProcessor.AddFileBookmark(pdfFileName, pageOffset + 1);
+                    // Create a temporary copy of the main PDF
+                    tempMainPdf = System.IO.Path.Combine(
+                        System.IO.Path.GetTempPath(),
+                        $"temp_{Guid.NewGuid()}_{System.IO.Path.GetFileName(mainPdf)}"
+                    );
 
-                    MergeSinglePdf(pdfPath, pdfCopy, bookmarkProcessor, pageOffset);
-                    pageOffset += GetPageCount(pdfPath);
+                    // Copy the main PDF to the temp location
+                    File.Copy(mainPdf, tempMainPdf, true);
+                    usingTempFile = true;
+
+                    Console.WriteLine($"Created temporary copy of main PDF: {tempMainPdf}");
                 }
 
-                // Add all bookmarks to the merged document
-                bookmarkProcessor.AddBookmarksToDocument(pdfCopy);
+                using (var outputStream = new FileStream(outputPath, FileMode.Create, FileAccess.Write))
+                {
+                    // Create a document object
+                    var document = new Document();
 
-                // Close the document
-                document.Close();
+                    // Create a PdfCopy object for the document
+                    var pdfCopy = new PdfCopy(document, outputStream);
+
+                    // Create a bookmark processor - always create it as we'll add our own bookmarks
+                    var bookmarkProcessor = new BookmarkProcessor();
+
+                    // Open the document for writing
+                    document.Open();
+
+                    // Process the main PDF first (using temp file if needed)
+                    MergeSinglePdf(tempMainPdf, pdfCopy, bookmarkProcessor, 0);
+
+                    // Process additional PDFs
+                    int pageOffset = GetPageCount(tempMainPdf);
+                    foreach (var pdfPath in filteredAdditionalPdfs)
+                    {
+                        // Create a bookmark for this additional PDF
+                        string pdfFileName = System.IO.Path.GetFileNameWithoutExtension(pdfPath);
+                        if (options.CreateBookmarksForAdditionalPdf)
+                            bookmarkProcessor.AddFileBookmark(pdfFileName, pageOffset + 1);
+
+                        MergeSinglePdf(pdfPath, pdfCopy, bookmarkProcessor, pageOffset);
+                        pageOffset += GetPageCount(pdfPath);
+                    }
+
+                    // Add all bookmarks to the merged document
+                    bookmarkProcessor.AddBookmarksToDocument(pdfCopy);
+
+                    // Close the document
+                    document.Close();
+                }
+
+                Console.WriteLine($"Successfully merged PDFs to: {outputPath}");
+            }
+            finally
+            {
+                // Clean up the temporary file if we created one
+                if (usingTempFile && File.Exists(tempMainPdf))
+                {
+                    try
+                    {
+                        File.Delete(tempMainPdf);
+                        Console.WriteLine($"Deleted temporary file: {tempMainPdf}");
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Warning: Failed to delete temporary file {tempMainPdf}: {ex.Message}");
+                    }
+                }
             }
         }
 

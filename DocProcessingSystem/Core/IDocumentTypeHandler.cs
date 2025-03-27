@@ -15,7 +15,7 @@ namespace DocProcessingSystem.Core
         /// <summary>
         /// Processes documents from source folder against analysis groups
         /// </summary>
-        void ProcessDocuments(string sourceFolder, ref List<FolderGroup> analysisGroups, in IPdfMerger merger); // TODO: Check ref keyword is correctly used
+        void ProcessDocuments(string sourceFolder, ref List<FolderGroup> analysisGroups, in IPdfMerger merger);
 
         /// <summary>
         /// Gets the merge sequence for a specific folder group

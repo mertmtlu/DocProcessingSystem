@@ -21,26 +21,23 @@ namespace DocProcessingSystem
                 { 9, "KOMPRESSOR" },
                 { 10, "GUVENLIK" },
                 { 13, "HIZMET" },
-                { 19, "TRAF" }
+                { 19, "TRAFO" }
             };
 
         public static readonly Dictionary<string, string> ReportType = new()
         {
-            {"SEL", "SEL" }, // TODO: Write representations
-            //{"ZEV", "SEL" },
-            //{"GEO", "SEL" },
-            //{"FAY", "SEL" },
-            {"SLT", "SALT INCELEME" },
-            {"HEY", "HEYELAN" },
-            //{"CIG", "SEL" },
-            {"YAN", "YANGIN" },
-            //{"ORM", "SEL" },
-            {"GUV", "GUVENLIK" },
-            {"SES", "GURULTU" },
-            //{"FOY", "SEL" },
-            //{"ALT", "SEL" },
-            //{"ICM", "SEL" },
-
+            { "ZEV", "ZEMIN ETUT-VERI"},
+            { "GEO", "ZEMIN ETUT-GEOTEKNIK"},
+            { "FAY", "DIRIFAY"},
+            { "IKL", "IKLIM DEGISIKLIGI"},
         };
+
+        public static readonly List<string> preferences = new()
+            {
+                "IKL",
+                "GEO",
+                "FAY",
+                "ZEV"
+            };
     }
 }
