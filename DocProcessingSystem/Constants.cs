@@ -39,5 +39,26 @@ namespace DocProcessingSystem
                 "FAY",
                 "ZEV"
             };
+
+        public static readonly Dictionary<int, List<string>> requiredFiles = new()
+            {
+                { 1, new List<string>
+                  {
+                      "EK-A.pdf",
+                      "EK-B.pdf",
+                      "EK-C.pdf",
+                      "EK-D.pdf"
+                  }
+                },
+                { 2, new List<string>
+                  {
+                      "EK-A.pdf",
+                      "EK-B.pdf",
+                      "EK-C.pdf",
+                      "EK-D.pdf",
+                      "EK-E.pdf"
+                  }
+                }
+            };
     }
 }

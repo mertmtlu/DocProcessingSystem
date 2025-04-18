@@ -109,39 +109,65 @@ namespace DocProcessingSystem.Models
         }
 
         /// <summary>
-        /// Extracts TM number, building code, and building TM ID from a folder name
+        /// Extracts TM number, building code, and building TM ID from a folder name or path
         /// </summary>
-        public static (string tmNo, string buildingCode, string buildingTmId) ExtractParts(string folderName)
+        public static (string tmNo, string buildingCode, string buildingTmId) ExtractParts(string input)
         {
-            // Standard pattern: digits-digits-M+digits(-digits)
-            string patternStandard = @"^(\d{1,2}-\d{2})\s*-?M(\d{2})(?:-(\d{2}|\d{1}))?(?:-([A-Za-z0-9]+))?$";
-
-            // TEI pattern: TEI-B+digits-TM-digits-DIR-M+digits(-digits)
-            string patternTei = @"TEI-B(\d{2})-TM-(\d{2})-DIR-M(\d{2})(?:-(\d{2}|\d{1}))?";
-
-            // Try the standard pattern first
-            Match match = Regex.Match(folderName, patternStandard);
-            if (match.Success)
+            // Check if input looks like a file path
+            if (input.Contains("\\") || input.Contains("/"))
             {
-                string tmNo = match.Groups[1].Value;                   // e.g., "18-10"
-                string buildingCode = match.Groups[2].Value;           // e.g., "02"
-                string buildingTmId = match.Groups[3].Success
-                    ? match.Groups[3].Value
-                    : "01";                                            // Default to 01 if not specified
+                // Split the path into components (works with both / and \ separators)
+                string[] pathComponents = input.Split(new char[] { '\\', '/' }, StringSplitOptions.RemoveEmptyEntries);
 
-                return (tmNo, buildingCode, buildingTmId);
+                // Try to match each path component
+                foreach (string component in pathComponents)
+                {
+                    var result = ExtractPartsFromSingleFolder(component);
+                    if (result.tmNo != null)
+                    {
+                        return result; // Return the first valid match
+                    }
+                }
+                return (null, null, null); // No match found in any path component
             }
 
-            // Try the TEI pattern
-            match = Regex.Match(folderName, patternTei);
-            if (match.Success)
-            {
-                string buildingCode = match.Groups[3].Value;           // e.g., "02"
-                string tmNo = $"{match.Groups[1].Value}-{match.Groups[2].Value}"; // e.g., "05-13"
-                string buildingTmId = match.Groups[4].Success
-                    ? match.Groups[4].Value
-                    : "01";                                            // Default to 01 if not specified
+            // If not a path, process as a single folder name
+            return ExtractPartsFromSingleFolder(input);
+        }
 
+        /// <summary>
+        /// Internal helper method that applies regex patterns to a single folder name
+        /// </summary>
+        private static (string tmNo, string buildingCode, string buildingTmId) ExtractPartsFromSingleFolder(string folderName)
+        {
+            // Standard patterns
+            var standardPatterns = new List<string>
+            {
+                @"^(\d{1,2}-\d{2})\s*-?M(\d{2})(?:-(\d{2}|\d{1}))?(?:-([A-Za-z0-9]+))?$",
+                @"^(\d{1,2}-\d{2})[_\s-]*M(\d{2})[_\s-]*(\d{2}|\d{1})?(?:-([A-Za-z0-9]+))?$"
+            };
+
+            // Try standard patterns first
+            foreach (string pattern in standardPatterns)
+            {
+                Match match = Regex.Match(folderName, pattern);
+                if (match.Success)
+                {
+                    string tmNo = match.Groups[1].Value;
+                    string buildingCode = match.Groups[2].Value;
+                    string buildingTmId = match.Groups[3].Success ? match.Groups[3].Value : "01";
+                    return (tmNo, buildingCode, buildingTmId);
+                }
+            }
+
+            // Try TEI pattern separately due to different group structure
+            string teiPattern = @"TEI-B(\d{2})-TM-(\d{2})-DIR-M(\d{2})(?:-(\d{2}|\d{1}))?";
+            Match teiMatch = Regex.Match(folderName, teiPattern);
+            if (teiMatch.Success)
+            {
+                string tmNo = $"{teiMatch.Groups[1].Value}-{teiMatch.Groups[2].Value}";
+                string buildingCode = teiMatch.Groups[3].Value;
+                string buildingTmId = teiMatch.Groups[4].Success ? teiMatch.Groups[4].Value : "01";
                 return (tmNo, buildingCode, buildingTmId);
             }
 

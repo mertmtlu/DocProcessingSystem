@@ -20,19 +20,12 @@ namespace DocProcessingSystem.Services
         /// <summary>
         /// Merges multiple PDF files into one output file
         /// </summary>
-        /// <param name="mainPdf">Path to the main PDF file</param>
+        /// <param name="mergeSequence">MergeSequence Object</param>
         public void MergePdf(MergeSequence mergeSequence)
         {
             MergePdf(mergeSequence.MainDocument, mergeSequence.AdditionalDocuments, mergeSequence.OutputPath, mergeSequence.Options);
         }
 
-        /// <summary>
-        /// Merges multiple PDF files into one output file
-        /// </summary>
-        /// <param name="mainPdf">Path to the main PDF file</param>
-        /// <param name="additionalPdfs">List of paths to additional PDF files to merge</param>
-        /// <param name="outputPath">Path where the merged PDF will be saved</param>
-        /// <param name="options">Merge options</param>
         /// <summary>
         /// Merges a main PDF with additional PDFs and writes to the output path
         /// </summary>
@@ -107,7 +100,10 @@ namespace DocProcessingSystem.Services
                     }
 
                     // Add all bookmarks to the merged document
-                    bookmarkProcessor.AddBookmarksToDocument(pdfCopy);
+                    if (options.PreserveBookmarks)
+                    {
+                        bookmarkProcessor.AddBookmarksToDocument(pdfCopy);
+                    }
 
                     // Close the document
                     document.Close();

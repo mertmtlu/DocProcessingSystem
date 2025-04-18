@@ -29,7 +29,7 @@ namespace DocProcessingSystem.Models
         public static void ProcessPdfDocuments()
         {
             // Root folder where all operations will take place
-            var rootFolder = @"C:\Users\Mert\Desktop\total";              // TODO: FIRAT Create a main folder for all documents
+            var rootFolder = @"C:\Users\Mert\Desktop\total";          // TODO: FIRAT Create a main folder for all documents
 
             // Define folder paths using the existing structure
             var splitPdfRootFolder = Path.Combine(rootFolder, "MM");  // TODO: FIRAT For words that should be seperated from keyword "EK-X"
