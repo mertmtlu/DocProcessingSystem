@@ -3,11 +3,14 @@ using DocProcessingSystem.Models;
 using DocProcessingSystem.Services;
 using iText.Kernel.Pdf.Filters;
 using iTextSharp.text.pdf;
+using Microsoft.Office.Interop.Word;
 using Microsoft.VisualBasic;
 using OfficeOpenXml;
 using Org.BouncyCastle.Asn1.Cmp;
 using System;
+using System.ComponentModel.DataAnnotations;
 using System.Diagnostics.CodeAnalysis;
+using static iTextSharp.text.pdf.PdfDocument;
 
 namespace DocProcessingSystem
 {
@@ -23,23 +26,121 @@ namespace DocProcessingSystem
             //PdfOperationsHelper.ConvertWordToPdfAsync(@"C:\Users\Mert\Downloads\KAROT ÇALIŞMALARI\5. Bölge Karot Ekleri", @"C:\Users\Mert\Downloads\KAROT ÇALIŞMALARI\5. Bölge Karot Ekleri", false, true).Wait();
             //PdfOperationsHelper.ProcessPdfDocuments();
             //GetTotalPageCount(@"C:\Users\Mert\Desktop\REPORTS");
-            //CreateEkA(@"C:\Users\Mert\Desktop\fırat eka\TM FOLDERS - Kopya");
+            //CreateEkA(@"C:\Users\Mert\Desktop\Anıl EK-A\TM Folders");
             //ProcessDocuments();
             //RenameDocumentFiles();
             //HandleCrisis();
             //SortPdfFiles();
             //CheckAndFixHakedisFolder();
-            TryChangeText();
+            //TryChangeText();
+            //HakedisHelper.Run();
+            //CopyUpperDirectory();
+            //DeleteOnePageEkC();
+            //RenameEkAFiles();
+            //CheckEkCExists();
+            //FixEkBFiles(@"C:\Users\Mert\Desktop\SZL-3\SZL-3 SAHA", @"C:\Users\Mert\Desktop\SZL-3\SZL-3 SAHA new");
+            //CheckEkBFiles(@"C:\Users\Mert\Desktop\SZL-3\SZL-3 SAHA", @"C:\Users\Mert\Desktop\SZL-3\SZL-3 SAHA EK-B Corrected");
+            //CheckEkBFiles(@"C:\Users\Mert\Desktop\SZL-3\SZL-3 SAHA");
+            TPHelper.Merge(@"Path/to/document/TP");
+
         }
 
         #endregion
 
         #region Document Processing Functions
 
+        static void CheckEkCExists()
+        {
+            string root = @"C:\Users\Mert\Desktop\SZL-3\SZL-3 SAHA\9.BÖLGE\TM_Folders";
+
+            var folders = Directory.GetDirectories(root);
+
+            foreach (string folder in folders)
+            {
+                var ekCPath = Path.Combine(folder, "EK-C.pdf");
+
+                if (!File.Exists(ekCPath))
+                {
+                    Console.WriteLine($"EK-C missing for path: {ekCPath}");
+                }
+            }
+        }
+
+        static void CheckEkBFiles(string root)
+        {
+            var ekB = Directory.GetFiles(root, "EK-B.pdf", SearchOption.AllDirectories);
+            var textReplacer = new PdfTextReplacerService();
+
+            List<(string, string, string)> checker = new();
+
+            foreach (var building in Constants.HK19)
+            {
+                (string tmNo, string buildingCode, string buildingTmId) = FolderHelper.ExtractParts(building);
+                if (tmNo == null || buildingCode == null || buildingTmId == null) throw new ArgumentNullException();
+
+                if (!checker.Contains((tmNo, buildingCode, buildingTmId))) checker.Add((tmNo, buildingCode, buildingTmId));
+            }
+
+
+            foreach ((string tmNo, string buildingCode, string buildingTmId) building in checker)
+            {
+                var areaID = Convert.ToInt32(building.tmNo.Split('-')[0]);
+                var areaPath = Path.Combine(root, $"{areaID}.BÖLGE", "TM_Folders");
+                var folders = Directory.GetDirectories(areaPath);
+
+                foreach (var folder in folders)
+                {
+                    (string tmNo, string buildingCode, string buildingTmId) = FolderHelper.ExtractParts(folder);
+                    if (tmNo == null || buildingCode == null || buildingTmId == null) throw new ArgumentNullException();
+
+                    if (tmNo == building.tmNo && buildingCode == building.buildingCode && buildingTmId == building.buildingTmId)
+                    {
+                        var ekBPath = Path.Combine(folder, "EK-B.pdf");
+
+                        if (!File.Exists(ekBPath))
+                        {
+                            Console.WriteLine($"Check EK-B for {building.tmNo}-M{building.buildingCode}-{building.buildingTmId} for path: {ekBPath}");
+                        }
+
+                        break;
+                    }
+                }
+            }
+        }
+
+        static void CheckEkBFiles(string root, string dest)
+        {
+            var ekB = Directory.GetFiles(root, "EK-B.pdf", SearchOption.AllDirectories);
+
+            foreach (var ekBPath in ekB)
+            {
+                var destinationPath = ekBPath.Replace(root, dest);
+
+                string destinationDirectory = Path.GetDirectoryName(destinationPath);
+                if (!Directory.Exists(destinationDirectory))
+                {
+                    Directory.CreateDirectory(destinationDirectory);
+                }
+
+                File.Copy(ekBPath, destinationPath, true);
+            }
+        }
+
+        static void FixEkBFiles(string root, string dest)
+        {
+            var ekB = Directory.GetFiles(root, "EK-B.pdf", SearchOption.AllDirectories);
+            var textReplacer = new PdfTextReplacerService();
+
+            foreach (var ekBPath in ekB)
+            {
+                textReplacer.ReplaceCapYukseklik(ekBPath, ekBPath.Replace(root, dest));
+            }
+        }
+
         static void TryChangeText()
         {
-            string inputFolder = @"C:\Users\Mert\Desktop\Analysis - Kopya";
-            string outputFolder = @"C:\Users\Mert\Desktop\Analysis";
+            string inputFolder = @"C:\Users\Mert\Desktop\Yeni klasör (3)";
+            string outputFolder = @"C:\Users\Mert\Desktop\Yeni klasör (4)";
 
             var ekKarot = Directory.GetFiles(inputFolder, "EK_KAROT.pdf", SearchOption.AllDirectories);
             var ekB = Directory.GetFiles(inputFolder, "EK-B.pdf", SearchOption.AllDirectories);
@@ -500,7 +601,7 @@ namespace DocProcessingSystem
             string parametricsFolder = @"C:\Users\Mert\Desktop\SZL2\Anıl Report Revision\archive\Anıl Final Report Merge\Parametric";
             string deterministicsFolder = @"C:\Users\Mert\Desktop\SZL2\Anıl Report Revision\archive\Anıl Final Report Merge\Deterministic";
             string post2008 = @"C:\Users\Mert\Desktop\Fırat Report Revision\MM_RAPOR\WORDasd"; // TODO: FIRAT
-            string analysisFolder = @"C:\Users\Mert\Desktop\last revise folder\Analysis"; // TODO: FIRAT
+            string analysisFolder = @"C:\Users\Mert\Desktop\extra"; // TODO: FIRAT
 
             using (var converter = new WordToPdfConverter())
             using (var merger = new PdfMergerService())
@@ -620,6 +721,25 @@ namespace DocProcessingSystem
                 catch (Exception e)
                 {
                     Console.WriteLine($"ERROR: Cannot process file, Name: {Path.GetFileName(file)}, Path: {file}, Error: {e.Message}");
+                }
+            }
+        }
+
+        static void DeleteOnePageEkC()
+        {
+            var root = @"C:\Users\Mert\Desktop\SZL-3\SZL-3 SAHA";
+
+            var ekFiles = Directory.GetFiles(root, "EK-C.pdf", SearchOption.AllDirectories);
+
+            PdfReaderService pdfReaderService = new();
+
+            foreach (var ekFile in ekFiles)
+            {
+                if (!pdfReaderService.PageExists(ekFile, 2))
+                {
+                    Console.WriteLine($"Deleting file: {ekFile}");
+
+                    File.Delete(ekFile);
                 }
             }
         }
@@ -884,6 +1004,34 @@ namespace DocProcessingSystem
             }
         }
 
+        static void RenameEkAFiles()
+        {
+            var root = @"C:\Users\Mert\Desktop\fırat ek a";
+
+            var files = Directory.GetFiles(root, "EK-A.pdf", SearchOption.AllDirectories);
+
+            foreach (var file in files)
+            {
+                try
+                {
+                    var (tmNo, buildingCode, buildingTmID) = FolderHelper.ExtractParts(file);
+
+                    if (tmNo == null || buildingCode == null || buildingTmID == null) { Console.WriteLine($"Cannot process: {file}"); ; continue; }
+
+                    var newName = $"{tmNo}-{buildingCode}-{buildingTmID}.pdf";
+
+                    var destination = Path.Combine(root, newName);
+
+                    File.Copy(file, destination);
+
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error: {file}, Exception: {ex.Message}");
+                }
+
+            }
+        }
 
         #endregion
 
@@ -947,15 +1095,15 @@ namespace DocProcessingSystem
 
         static void RenameDocumentFiles()
         {
-            var inputFolder = @"C:\Users\Mert\Desktop\DIR";
+            var inputFolder = @"C:\Users\Mert\Desktop\Rename PDF";
             var excelFile = @"C:\Users\Mert\Desktop\SZL-2_TM_KISA_TR_ISIM_LISTE_20250319.xlsx";
 
             var tmNameJson = ConvertExcelToDictionary(excelFile);
 
             // Get both Word and PDF documents
-            var wordDocuments = Directory.GetFiles(inputFolder, "*.docx", SearchOption.AllDirectories);
-            var pdfDocuments = Directory.GetFiles(inputFolder, "*.pdf", SearchOption.AllDirectories);
-            var allDocuments = wordDocuments.Concat(pdfDocuments).ToArray();
+            //var wordDocuments = Directory.GetFiles(inputFolder, "*.docx", SearchOption.AllDirectories);
+            var allDocuments = Directory.GetFiles(inputFolder, "TEI*.pdf", SearchOption.AllDirectories);
+            //var allDocuments = wordDocuments.Concat(pdfDocuments).ToArray();
 
             foreach (var document in allDocuments)
             {
@@ -1067,6 +1215,36 @@ namespace DocProcessingSystem
                     {
                         Console.WriteLine($"Error processing document {document}: {ex.Message}");
                     }
+                }
+            }
+        }
+
+        static void CopyUpperDirectory()
+        {
+            var root = @"C:\Users\Mert\Desktop\Rename PDF";
+            var allDocuments = Directory.GetFiles(root, "TEI*.pdf", SearchOption.AllDirectories);
+
+            foreach (var file in allDocuments)
+            {
+                // Skip files that are already in the root directory
+                if (Path.GetDirectoryName(file) == root)
+                    continue;
+
+                // Get the parent directory
+                var parentDir = Directory.GetParent(Path.GetDirectoryName(file)).FullName;
+
+                // Create the destination path by combining parent directory and filename
+                var destPath = Path.Combine(parentDir, Path.GetFileName(file));
+
+                // Only copy if the file doesn't already exist at the destination
+                if (!File.Exists(destPath))
+                {
+                    File.Copy(file, destPath, false);
+                    Console.WriteLine($"Copied {file} to {destPath}");
+                }
+                else
+                {
+                    Console.WriteLine($"Skipped {file} - file already exists at {destPath}");
                 }
             }
         }

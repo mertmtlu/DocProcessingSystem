@@ -140,13 +140,13 @@ namespace DocProcessingSystem.Models
         /// </summary>
         private static (string tmNo, string buildingCode, string buildingTmId) ExtractPartsFromSingleFolder(string folderName)
         {
-            // Standard patterns
+            // Standard patterns with consistent separator handling
             var standardPatterns = new List<string>
             {
-                @"^(\d{1,2}-\d{2})\s*-?M(\d{2})(?:-(\d{2}|\d{1}))?(?:-([A-Za-z0-9]+))?$",
-                @"^(\d{1,2}-\d{2})[_\s-]*M(\d{2})[_\s-]*(\d{2}|\d{1})?(?:-([A-Za-z0-9]+))?$"
+                @"(\d{1,2}-\d{2})[_\s-]*M(\d{2})[_*\s-]*(\d{2}|\d{1})?(?:[_-]([A-Za-z0-9]+))?",
+                @"(\d{1,2}-\d{2})[_\s-]*M(\d{2})[_*\s-]*(\d{2}|\d{1})?(?:[_-]([A-Za-z0-9]+))?",
+                @"(\d{1,2}-\d{2})[_*\s-]*M(\d{2})[_*\s-]*(\d{2}|\d{1})?(?:[_-]([A-Za-z0-9]+))?(?:\s*\([A-Za-z0-9\s]+\))?"
             };
-
             // Try standard patterns first
             foreach (string pattern in standardPatterns)
             {
@@ -159,7 +159,6 @@ namespace DocProcessingSystem.Models
                     return (tmNo, buildingCode, buildingTmId);
                 }
             }
-
             // Try TEI pattern separately due to different group structure
             string teiPattern = @"TEI-B(\d{2})-TM-(\d{2})-DIR-M(\d{2})(?:-(\d{2}|\d{1}))?";
             Match teiMatch = Regex.Match(folderName, teiPattern);
@@ -170,7 +169,6 @@ namespace DocProcessingSystem.Models
                 string buildingTmId = teiMatch.Groups[4].Success ? teiMatch.Groups[4].Value : "01";
                 return (tmNo, buildingCode, buildingTmId);
             }
-
             return (null, null, null);
         }
 

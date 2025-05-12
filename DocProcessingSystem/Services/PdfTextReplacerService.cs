@@ -105,8 +105,6 @@ namespace DocProcessingSystem.Services
                 Directory.CreateDirectory(outputDir);
             }
 
-            Console.WriteLine($"Replacing '{oldText}' with '{newText}' in PDF: {inputPdfPath}");
-
             // Use a direct replacement approach that's better for tables
             try
             {
@@ -115,7 +113,7 @@ namespace DocProcessingSystem.Services
                 using (var pdfDocument = new PdfDocument(reader, writer))
                 {
                     int replacementCount = ProcessTextReplacement(pdfDocument, oldText, newText, options);
-                    Console.WriteLine($"Completed with {replacementCount} replacements");
+                    if (replacementCount == 0) Console.WriteLine($"PDF: {inputPdfPath} completed with {replacementCount} replacements");
                 }
             }
             catch (Exception ex)
@@ -133,8 +131,15 @@ namespace DocProcessingSystem.Services
         /// <param name="options">Options for controlling the replacement</param>
         public void ReplaceCapYukseklik(string inputPdfPath, string outputPdfPath, TextReplacementOptions options = null)
         {
-            // Call the main replacement method with the specific text to replace
-            ReplaceText(inputPdfPath, outputPdfPath, "Çap/Yükseklik", "Yükseklik/Çap", options);
+            options ??= new TextReplacementOptions();
+
+            var reader = new PdfReaderService();
+
+            if (reader.ContainsText(inputPdfPath, "Numuneni"))
+            {
+                options.CalibriBoldFontPath = "C:\\Windows\\Fonts\\calibrib.ttf";
+                ReplaceText(inputPdfPath, outputPdfPath, "Numuneni Çap/Yükseklik", "Numune Yükseklik/Çap", options);
+            }
         }
 
         /// <summary>
@@ -168,7 +173,7 @@ namespace DocProcessingSystem.Services
 
                 if (replacements.Count > 0)
                 {
-                    Console.WriteLine($"Found {replacements.Count} occurrences on page {pageNum}");
+                    //Console.WriteLine($"Found {replacements.Count} occurrences on page {pageNum}");
 
                     // Apply the replacements with a new content stream
                     PdfCanvas canvas = new PdfCanvas(page);

@@ -93,16 +93,16 @@
     <None Update="CoverPages\DigitalCopy\BlockC\EK-E.pdf">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Update="CoverPages\DigitalCopy\BloCKNonSpecified\EK-B.pdf">
+    <None Update="CoverPages\DigitalCopy\BlockNonSpecified\EK-B.pdf">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Update="CoverPages\DigitalCopy\BloCKNonSpecified\EK-C.pdf">
+    <None Update="CoverPages\DigitalCopy\BlockNonSpecified\EK-C.pdf">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Update="CoverPages\DigitalCopy\BloCKNonSpecified\EK-D.pdf">
+    <None Update="CoverPages\DigitalCopy\BlockNonSpecified\EK-D.pdf">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Update="CoverPages\DigitalCopy\BloCKNonSpecified\EK-E.pdf">
+    <None Update="CoverPages\DigitalCopy\BlockNonSpecified\EK-E.pdf">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Update="CoverPages\Masonry\EK-C_Kapak.pdf">
