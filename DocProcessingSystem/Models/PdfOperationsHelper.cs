@@ -30,14 +30,14 @@ namespace DocProcessingSystem.Models
         public static void ProcessPdfDocuments()
         {
             // Root folder where all operations will take place
-            var rootFolder = @"C:\Users\Mert\Desktop\total";          // TODO: FIRAT Create a main folder for all documents
+            var rootFolder = @"C:\Users\K6\Desktop\GİS-DENEME";          // TODO: FIRAT Create a main folder for all documents
 
             // Define folder paths using the existing structure
-            var splitPdfRootFolder = Path.Combine(rootFolder, "MM");  // TODO: FIRAT For words that should be seperated from keyword "EK-X"
-            var mergePdfRootFolder = Path.Combine(rootFolder, "asd"); // TODO: FIRAT For words that should be just merged with additional pdfs
+            var splitPdfRootFolder = Path.Combine(rootFolder, "PUSHOVER");  // TODO: FIRAT For words that should be seperated from keyword "EK-X"
+            var mergePdfRootFolder = Path.Combine(rootFolder, "DCR"); // TODO: FIRAT For words that should be just merged with additional pdfs
 
-            var complexAttachmentFolder = "specific";                 // TODO: FIRAT For each folder above create a new folder to hold folders which ends with "--"
-            var simpleAttachmentFolder = "nonspecific";               // TODO: FIRAT For each folder above create a new folder to hold folders which does not end with "--"
+            var complexAttachmentFolder = "2008Oncesi";                 // TODO: FIRAT For each folder above create a new folder to hold folders which ends with "--"
+            var simpleAttachmentFolder = "2008Sonrasi";               // TODO: FIRAT For each folder above create a new folder to hold folders which does not end with "--"
 
             // First convert Word documents to PDF
             ConvertWordToPdfAsync(rootFolder, rootFolder, false, true, 8).Wait();

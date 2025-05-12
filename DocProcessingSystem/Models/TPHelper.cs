@@ -36,9 +36,10 @@ namespace DocProcessingSystem.Models
                     }
                     
                     var wordName = Path.GetFileNameWithoutExtension(mainWord);
+                    var mainpdfLocation = mainWord.Replace(wordName + ".docx", "main.pdf");
 
-                    converter.Convert(mainWord, mainWord.Replace(wordName, "main"), true);
-                    merger.MergePdf(mainWord.Replace(wordName, "main"), new List<string>() { ekA, ekB }, mainWord.Replace(".docx", ".pdf"), options);
+                    converter.Convert(mainWord, mainpdfLocation, true);
+                    merger.MergePdf(mainpdfLocation, new List<string>() { ekA, ekB }, mainWord.Replace(".docx", ".pdf"), options);
                 }
             }
         }
