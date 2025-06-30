@@ -2,6 +2,7 @@
 using iTextSharp.text.pdf;
 using iTextSharp.text.pdf.parser;
 using DocProcessingSystem.Core;
+using Microsoft.Office.Interop.Word;
 
 namespace DocProcessingSystem.Services
 {
@@ -29,6 +30,20 @@ namespace DocProcessingSystem.Services
             using (var reader = new PdfReader(pdfPath))
             {
                 return pageNumber > 0 && pageNumber <= reader.NumberOfPages;
+            }
+        }
+
+        public int GetPageCount(string pdfPath)
+        {
+            if (string.IsNullOrEmpty(pdfPath))
+                throw new ArgumentNullException(nameof(pdfPath), "PDF path cannot be null or empty");
+
+            if (!File.Exists(pdfPath))
+                throw new FileNotFoundException($"PDF file not found: {pdfPath}");
+
+            using (var reader = new PdfReader(pdfPath))
+            {
+                return reader.NumberOfPages;
             }
         }
 
@@ -70,6 +85,40 @@ namespace DocProcessingSystem.Services
             }
 
             return false;
+        }
+
+        /// <summary>
+        /// Checks if a specific string exists on a specific page of the PDF
+        /// </summary>
+        /// <param name="pdfPath">Path to the PDF file</param>
+        /// <param name="searchText">Text to search for</param>
+        /// <param name="pageNumber">Page number to search in</param>
+        /// <param name="isCaseSensitive">Whether the search should be case sensitive</param>
+        /// <returns>True if the string exists on the specified page, false otherwise</returns>
+        public bool ContainsTextOnPage(string pdfPath, string searchText, int pageNumber, bool isCaseSensitive = false)
+        {
+            if (string.IsNullOrEmpty(pdfPath))
+                throw new ArgumentNullException(nameof(pdfPath), "PDF path cannot be null or empty");
+
+            if (string.IsNullOrEmpty(searchText))
+                throw new ArgumentNullException(nameof(searchText), "Search text cannot be null or empty");
+
+            if (!File.Exists(pdfPath))
+                throw new FileNotFoundException($"PDF file not found: {pdfPath}");
+
+            using (var reader = new PdfReader(pdfPath))
+            {
+                if (pageNumber <= 0 || pageNumber > reader.NumberOfPages)
+                    throw new ArgumentOutOfRangeException(nameof(pageNumber), $"Page number {pageNumber} is out of range. PDF has {reader.NumberOfPages} pages.");
+
+                // Extract text from the specific page
+                string pageText = PdfTextExtractor.GetTextFromPage(reader, pageNumber);
+
+                // Check if the text exists on the page
+                return isCaseSensitive
+                    ? pageText.Contains(searchText)
+                    : pageText.Contains(searchText, StringComparison.OrdinalIgnoreCase);
+            }
         }
 
         /// <summary>

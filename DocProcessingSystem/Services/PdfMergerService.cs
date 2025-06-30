@@ -77,14 +77,15 @@ namespace DocProcessingSystem.Services
                     // Create a PdfCopy object for the document
                     var pdfCopy = new PdfCopy(document, outputStream);
 
-                    // Create a bookmark processor - always create it as we'll add our own bookmarks
+                    // Create a bookmark processor
                     var bookmarkProcessor = new BookmarkProcessor();
 
                     // Open the document for writing
                     document.Open();
 
                     // Process the main PDF first (using temp file if needed)
-                    MergeSinglePdf(tempMainPdf, pdfCopy, bookmarkProcessor, 0);
+                    // Pass options to control bookmark behavior
+                    MergeSinglePdf(tempMainPdf, pdfCopy, bookmarkProcessor, 0, options, isMainDocument: true);
 
                     // Process additional PDFs
                     int pageOffset = GetPageCount(tempMainPdf);
@@ -95,15 +96,13 @@ namespace DocProcessingSystem.Services
                         if (options.CreateBookmarksForAdditionalPdf)
                             bookmarkProcessor.AddFileBookmark(pdfFileName, pageOffset + 1);
 
-                        MergeSinglePdf(pdfPath, pdfCopy, bookmarkProcessor, pageOffset);
+                        MergeSinglePdf(pdfPath, pdfCopy, bookmarkProcessor, pageOffset, options, isMainDocument: false);
                         pageOffset += GetPageCount(pdfPath);
                     }
 
-                    // Add all bookmarks to the merged document
-                    if (options.PreserveBookmarks)
-                    {
-                        bookmarkProcessor.AddBookmarksToDocument(pdfCopy);
-                    }
+                    // Add bookmarks to the merged document
+                    // This will include both preserved bookmarks (if enabled) and new file bookmarks
+                    bookmarkProcessor.AddBookmarksToDocument(pdfCopy);
 
                     // Close the document
                     document.Close();
@@ -247,20 +246,31 @@ namespace DocProcessingSystem.Services
             return false;
         }
 
+        
+
         /// <summary>
         /// Merges a single PDF into the output document
         /// </summary>
-        private void MergeSinglePdf(string pdfPath, PdfCopy pdfCopy, BookmarkProcessor bookmarkProcessor, int pageOffset)
+        /// <param name="pdfPath">Path to the PDF to merge</param>
+        /// <param name="pdfCopy">PdfCopy object for the output document</param>
+        /// <param name="bookmarkProcessor">Bookmark processor to handle bookmarks</param>
+        /// <param name="pageOffset">Page offset for bookmark adjustment</param>
+        /// <param name="options">Merge options to control bookmark behavior</param>
+        /// <param name="isMainDocument">Whether this is the main document or an additional document</param>
+        private void MergeSinglePdf(string pdfPath, PdfCopy pdfCopy, BookmarkProcessor bookmarkProcessor, int pageOffset, MergeOptions options, bool isMainDocument)
         {
             using (var reader = new PdfReader(pdfPath))
             {
-                // Save bookmarks if needed (only if preserveBookmarks is true)
-                var bookmarks = SimpleBookmark.GetBookmark(reader);
-                if (bookmarks != null)
+                // Only save existing bookmarks if PreserveBookmarks is enabled
+                if (options.PreserveBookmarks)
                 {
-                    // Adjust page numbers in bookmarks to account for offset in the merged document
-                    SimpleBookmark.ShiftPageNumbers(bookmarks, pageOffset, null);
-                    bookmarkProcessor.AddBookmarks(bookmarks);
+                    var bookmarks = SimpleBookmark.GetBookmark(reader);
+                    if (bookmarks != null)
+                    {
+                        // Adjust page numbers in bookmarks to account for offset in the merged document
+                        SimpleBookmark.ShiftPageNumbers(bookmarks, pageOffset, null);
+                        bookmarkProcessor.AddBookmarks(bookmarks);
+                    }
                 }
 
                 // Add all pages from this PDF to the output

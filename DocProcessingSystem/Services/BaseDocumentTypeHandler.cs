@@ -925,6 +925,7 @@ namespace DocProcessingSystem.Services
         {
             string mainPdf = Path.Combine(group.MainFolder, "main.pdf");
 
+
             // Get additional PDFs
             var additionalPdfs = new List<string>();
 

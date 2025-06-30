@@ -6,10 +6,13 @@ using iTextSharp.text.pdf;
 using Microsoft.Office.Interop.Word;
 using Microsoft.VisualBasic;
 using OfficeOpenXml;
+using OfficeOpenXml.Style.Dxf;
 using Org.BouncyCastle.Asn1.Cmp;
 using System;
 using System.ComponentModel.DataAnnotations;
 using System.Diagnostics.CodeAnalysis;
+using System.Net.WebSockets;
+using System.Security.Cryptography.X509Certificates;
 using static iTextSharp.text.pdf.PdfDocument;
 
 namespace DocProcessingSystem
@@ -23,31 +26,423 @@ namespace DocProcessingSystem
         /// </summary>
         static void Main(string[] args)
         {
-            //PdfOperationsHelper.ConvertWordToPdfAsync(@"C:\Users\Mert\Downloads\KAROT ÇALIŞMALARI\5. Bölge Karot Ekleri", @"C:\Users\Mert\Downloads\KAROT ÇALIŞMALARI\5. Bölge Karot Ekleri", false, true).Wait();
+            PdfOperationsHelper.ConvertWordToPdfAsync(@"C:\Users\Mert\Desktop\Kapak", @"C:\Users\Mert\Desktop\Kapak", false, true).Wait();
             //PdfOperationsHelper.ProcessPdfDocuments();
             //GetTotalPageCount(@"C:\Users\Mert\Desktop\REPORTS");
             //CreateEkA(@"C:\Users\Mert\Desktop\Anıl EK-A\TM Folders");
             //ProcessDocuments();
             //RenameDocumentFiles();
+            //CopyUpperDirectory();
             //HandleCrisis();
             //SortPdfFiles();
             //CheckAndFixHakedisFolder();
             //TryChangeText();
             //HakedisHelper.Run();
-            //CopyUpperDirectory();
             //DeleteOnePageEkC();
             //RenameEkAFiles();
             //CheckEkCExists();
-            //FixEkBFiles(@"C:\Users\Mert\Desktop\SZL-3\SZL-3 SAHA", @"C:\Users\Mert\Desktop\SZL-3\SZL-3 SAHA new");
+            //FixEkBFiles(@"C:\Users\Mert\Desktop\Yukseklik Cap Hatali", @"C:\Users\Mert\Desktop\Yukseklik Cap Hatali new");
             //CheckEkBFiles(@"C:\Users\Mert\Desktop\SZL-3\SZL-3 SAHA", @"C:\Users\Mert\Desktop\SZL-3\SZL-3 SAHA EK-B Corrected");
             //CheckEkBFiles(@"C:\Users\Mert\Desktop\SZL-3\SZL-3 SAHA");
-            TPHelper.Merge(@"Path/to/document/TP");
+            //TPHelper.Merge(@"Path/to/document/TP");
+            //FireReportHelper.Check(@"C:\Users\Mert\Desktop\REPORTS\KK\YAN");
+            //RegenMainPdf(@"C:\Users\Mert\Desktop\Yeni klasör", @"C:\Users\Mert\Desktop\dest");
+            //Help(@"C:\Users\Mert\Desktop\Yeni klasör");
+            //CheckEkFiles();
+            //CheckEkCMissingFiles();
 
+            //GenerateDonatiReports();
+            //DeliveryHelper.GetEkParts(@"C:\users\Mert\Desktop\REPORTS", @"C:\Users\Mert\Desktop\REPORTSTM");
+            //DeliveryHelper.CreateRedReport(@"C:\Users\Mert\Desktop\Yeni Klasör (2)", @"C:\Users\Mert\Desktop\RED");
+            //CountFiles(@"C:\Users\Mert\Desktop\Yeni klasör (2) - Kopya");
+            //RenameDocumentFiles();
+            //CopyFoyReports();
+
+            //ReArrangeCoverPages();
+            //RegenMainPdf(@"C:\Users\Mert\Desktop\Yeni Klasör (2)", @"C:\Users\Mert\Desktop\Kapak");
+            //MergeRedReports();
+            //PlaceSignaturesOnTeiDocument();
         }
 
         #endregion
 
         #region Document Processing Functions
+
+
+        static void PlaceSignaturesOnEachDocument()
+        {
+            var root = @"";
+            var dest = @"";
+            var pdfs = Directory.GetFiles(root, "*.pdf", SearchOption.AllDirectories);
+
+            foreach (var pdf in pdfs)
+            {
+                var destination = pdf.Replace(root, dest);
+
+                var directoryPath = Path.GetDirectoryName(destination);
+
+                if (!string.IsNullOrEmpty(directoryPath))
+                {
+                    Directory.CreateDirectory(directoryPath);
+                }
+
+                if (Path.GetFileNameWithoutExtension(pdf).Contains("-FOY-"))
+                {
+                    File.Copy(pdf, destination, true);
+                }
+                else
+                {
+                    PlaceSignaturesOnTeiDocument(pdf, destination);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Places signature images on the TEI PDF document
+        /// </summary>
+        /// <param name="inputPdfPath">Path to the input PDF file</param>
+        /// <param name="outputPdfPath">Path for the output PDF file with signatures</param>
+        static void PlaceSignaturesOnFoyDocument(string inputPdfPath = null, string outputPdfPath = null)
+        {
+            // Default paths if not provided
+            string defaultInputPath = @"C:\Users\Mert\Desktop\TEI-B01-TM-10-FOY-M00-00.pdf";
+            string defaultOutputPath = @"C:\Users\Mert\Desktop\TEI-B01-TM-10-FOY-M00-00-SINGED.pdf";
+
+            string finalInputPath = inputPdfPath ?? defaultInputPath;
+            string finalOutputPath = outputPdfPath ?? defaultOutputPath;
+
+            // Signature image paths
+            string ahmetYakutSignature = @"C:\Users\Mert\Desktop\Ahmet Yakut.png";
+            string barisBiniciSignature = @"C:\Users\Mert\Desktop\Barış Binici.png";
+
+            try
+            {
+                Console.WriteLine("Starting signature placement process...");
+                Console.WriteLine($"Input PDF: {finalInputPath}");
+                Console.WriteLine($"Output PDF: {finalOutputPath}");
+
+                // Get page dimensions to calculate positions
+                var (pageWidth, pageHeight) = PdfImagePlacementService.GetPageDimensions(finalInputPath, 1);
+                Console.WriteLine($"Page dimensions: {pageWidth:F1} x {pageHeight:F1} points");
+
+                // Configuration for signature images
+                var imageConfigs = new[]
+                {
+                    // Ahmet Yakut signature (upper right signature area)
+                    (ahmetYakutSignature, new ImagePlacementOptions
+                    {
+                        PageNumber = 1,
+                        X = pageWidth - PdfImagePlacementService.InchesToPoints(7f), // ~2.8 inches from right edge
+                        Y = pageHeight - PdfImagePlacementService.InchesToPoints(11f), // ~2.2 inches from top
+                        Height = PdfImagePlacementService.MillimetersToPoints(20f), // 0.8 inch height
+                        MaintainAspectRatio = true,
+                        PlaceInBackground = false, // Place over text
+                        Opacity = 1.0f
+                    }),
+
+                    // Barış Binici signature (lower right signature area)
+                    (barisBiniciSignature, new ImagePlacementOptions
+                    {
+                        PageNumber = 1,
+                        X = pageWidth - PdfImagePlacementService.InchesToPoints(3.2f), // ~2.8 inches from right edge
+                        Y = pageHeight - PdfImagePlacementService.InchesToPoints(11f), // ~3.5 inches from top
+                        Height = PdfImagePlacementService.MillimetersToPoints(23.3f), // 0.8 inch height
+                        MaintainAspectRatio = true,
+                        PlaceInBackground = false, // Place over text
+                        Opacity = 1.0f
+                    })
+                };
+
+                // Place both signatures on the PDF
+                PdfImagePlacementService.PlaceMultipleImagesOnPdf(
+                    finalInputPath,
+                    finalOutputPath,
+                    imageConfigs
+                );
+
+                Console.WriteLine("✅ Signature placement completed successfully!");
+                Console.WriteLine($"Signed document saved to: {finalOutputPath}");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ Error during signature placement: {ex.Message}");
+                Console.WriteLine($"Full error details: {ex}");
+                throw;
+            }
+        }
+        
+        /// <summary>
+        /// Places signature images on the TEI PDF document
+        /// </summary>
+        /// <param name="inputPdfPath">Path to the input PDF file</param>
+        /// <param name="outputPdfPath">Path for the output PDF file with signatures</param>
+        static void PlaceSignaturesOnTeiDocument(string inputPdfPath = null, string outputPdfPath = null)
+        {
+            // Default paths if not provided
+            string defaultInputPath = @"C:\Users\Mert\Desktop\TEI-B01-TM-10-SLT-M00-00_NT (AMBARLI-SALT INCELEME).pdf";
+            string defaultOutputPath = @"C:\Users\Mert\Desktop\TEI-B01-TM-10-SLT-M00-00_NT (AMBARLI-SALT INCELEME)_SIGNED.pdf";
+
+            string finalInputPath = inputPdfPath ?? defaultInputPath;
+            string finalOutputPath = outputPdfPath ?? defaultOutputPath;
+
+            // Signature image paths
+            string ahmetYakutSignature = @"C:\Users\Mert\Desktop\Ahmet Yakut.png";
+            string barisBiniciSignature = @"C:\Users\Mert\Desktop\Barış Binici.png";
+
+            try
+            {
+                Console.WriteLine("Starting signature placement process...");
+                Console.WriteLine($"Input PDF: {finalInputPath}");
+                Console.WriteLine($"Output PDF: {finalOutputPath}");
+
+                // Get page dimensions to calculate positions
+                var (pageWidth, pageHeight) = PdfImagePlacementService.GetPageDimensions(finalInputPath, 1);
+                Console.WriteLine($"Page dimensions: {pageWidth:F1} x {pageHeight:F1} points");
+
+                // Configuration for signature images
+                var imageConfigs = new[]
+                {
+                    // Ahmet Yakut signature (upper right signature area)
+                    (ahmetYakutSignature, new ImagePlacementOptions
+                    {
+                        PageNumber = 1,
+                        X = pageWidth - PdfImagePlacementService.InchesToPoints(7f), // ~2.8 inches from right edge
+                        Y = pageHeight - PdfImagePlacementService.InchesToPoints(11f), // ~2.2 inches from top
+                        Height = PdfImagePlacementService.MillimetersToPoints(20f), // 0.8 inch height
+                        MaintainAspectRatio = true,
+                        PlaceInBackground = false, // Place over text
+                        Opacity = 1.0f
+                    }),
+
+                    // Barış Binici signature (lower right signature area)
+                    (barisBiniciSignature, new ImagePlacementOptions
+                    {
+                        PageNumber = 1,
+                        X = pageWidth - PdfImagePlacementService.InchesToPoints(3.2f), // ~2.8 inches from right edge
+                        Y = pageHeight - PdfImagePlacementService.InchesToPoints(11f), // ~3.5 inches from top
+                        Height = PdfImagePlacementService.MillimetersToPoints(23.3f), // 0.8 inch height
+                        MaintainAspectRatio = true,
+                        PlaceInBackground = false, // Place over text
+                        Opacity = 1.0f
+                    })
+                };
+
+                // Place both signatures on the PDF
+                PdfImagePlacementService.PlaceMultipleImagesOnPdf(
+                    finalInputPath,
+                    finalOutputPath,
+                    imageConfigs
+                );
+
+                Console.WriteLine("✅ Signature placement completed successfully!");
+                Console.WriteLine($"Signed document saved to: {finalOutputPath}");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ Error during signature placement: {ex.Message}");
+                Console.WriteLine($"Full error details: {ex}");
+                throw;
+            }
+        }
+        static void ReArrangeCoverPages()
+        {
+            string root = @"C:\Users\Mert\Desktop\Kapak";
+            var pdfs = Directory.GetFiles(root, "kapak.pdf", SearchOption.AllDirectories);
+
+            var pdfExtractor = new PdfRangeExtractorService();
+
+            var option = new PdfExtractionOptions
+            {
+                StartPageSelectionType = PageSelectionType.FirstPage,
+                EndPageSelectionType = PageSelectionType.SpecificPage,
+                EndPageNumber = 6
+            };
+
+            foreach (var pdf in pdfs)
+            {
+                pdfExtractor.ExtractRange(pdf, pdf.Replace("kapak", "rearrenged"), option);
+            }
+        }
+
+        static void MergeRedReports()
+        {
+            string root = @"C:\Users\Mert\Desktop\Kapak";
+            string dest = @"C:\Users\Mert\Desktop\Yeni Klasör (2)";
+
+            var subfolders = Directory.GetDirectories(root);
+
+            using (var merger = new PdfMergerService())
+            {
+                foreach (var subfolder in subfolders)
+                {
+                    var coverPage = Path.Combine(subfolder, "rearrenged.pdf");
+                    var mainPdf = Path.Combine(subfolder, "main.pdf");
+
+                    var folderName = Path.GetFileName(subfolder);
+
+                    var outputPath = Path.Combine(dest, folderName, "main.pdf");
+
+                    MergeOptions option = new()
+                    {
+                        PreserveBookmarks = true,
+                        CreateBookmarksForAdditionalPdf = false
+                    };
+
+                    merger.MergePdf(
+                        coverPage,
+                        new() { mainPdf },
+                        outputPath,
+                        option
+                    );
+
+                }
+            }
+        }
+
+        static void CopyFoyReports()
+        {
+            string root = @"C:\Users\Mert\Desktop\Yeni Klasör (2)";
+            string dest = @"C:\Users\Mert\Desktop\FOY Reports";
+
+            var pdfs = Directory.GetFiles(root, "*.pdf", SearchOption.AllDirectories)
+                .Where(f => Path.GetFileName(f).Contains("FOY"))
+                .ToList();
+
+            foreach (var pdf in pdfs)
+            {
+                var destinationFile = Path.Combine(dest, Path.GetFileName(pdf));
+
+                File.Copy(pdf, destinationFile);
+            }
+        }
+        static void CountFiles(string rootPath)
+        {
+            try
+            {
+                // Method 1: Get results as dictionary
+                var results = FileCounter.CountFilesBySubfolder(rootPath);
+
+                // Method 2: Print results directly
+                FileCounter.PrintFileCountsBySubfolder(rootPath);
+
+                // Example of using the dictionary results
+                foreach (var folder in results)
+                {
+                    Console.WriteLine($"Folder: {folder.Key}");
+                    var totalCount = folder.Value.Values.Sum();
+                    Console.WriteLine($"Total image/PDF files: {totalCount}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error: {ex.Message}");
+            }
+        }
+        static void GenerateDonatiReports()
+        {
+            Dictionary<int, string> d = new()
+            {
+                { 2, @"C:\Users\Mert\Desktop\input donati rapor\_DONATI RAPOR2.xlsm" },
+                { 3, @"C:\Users\Mert\Desktop\input donati rapor\_DONATI RAPOR3.xlsm" },
+                { 4, @"C:\Users\Mert\Desktop\input donati rapor\_DONATI RAPOR4.xlsm" },
+                { 5, @"C:\Users\Mert\Desktop\input donati rapor\_DONATI RAPOR5.xlsm" },
+                { 6, @"C:\Users\Mert\Desktop\input donati rapor\_DONATI RAPOR6.xlsm" },
+                { 7, @"C:\Users\Mert\Desktop\input donati rapor\_DONATI RAPOR7.xlsm" },
+                { 8, @"C:\Users\Mert\Desktop\input donati rapor\_DONATI RAPOR8.xlsm" },
+                { 11, @"C:\Users\Mert\Desktop\input donati rapor\_DONATI RAPOR11.xlsm" }
+            };
+
+            EkCHelper.GenerateExcelReport(@"C:\Users\Mert\Desktop\gen.xlsm", d, @"C:\Users\Mert\Desktop\outfiles");
+        }
+        static void CheckEkCMissingFiles()
+        {
+            var root = @"C:\Users\Mert\Desktop\SZL-3\SZL-3 SAHA\16.BÖLGE\RÖNTGEN";
+            var pdfs = Directory.GetFiles(root, "*.pdf", SearchOption.AllDirectories);
+            Dictionary<string, string> seen = new();
+            List<string> pdfsToBeRemoved = new();
+            foreach (var item in Constants.EkCPdfCheck)
+            {
+                bool found = false;
+                foreach (var pdf in pdfs)
+                {
+                    if (pdf.Contains(item))
+                    {
+                        if (seen.Keys.Contains(item))
+                        {
+                            Console.WriteLine($"{item} allready exists");
+                        }
+                        seen.Add(item, pdf);
+                        found = true;
+                        pdfsToBeRemoved.Add(pdf);
+                        break;
+                    }
+                }
+
+                if (!found)
+                {
+                    Console.WriteLine($"Rontgen does not exists: {item}");
+                }
+            }
+
+            foreach (var pdf in pdfs)
+            {
+                if (!pdfsToBeRemoved.Contains(pdf))
+                {
+                    Console.WriteLine($"Extra pdf detected: {pdf}");
+                }
+            }
+        }
+        static void Help(string root)
+        {
+            var pdfs = Directory.GetDirectories(root);
+
+            foreach (var dict in pdfs)
+            {
+                var file = Path.Combine(dict, "main.pdf");
+
+                if (!File.Exists(file))
+                {
+                    Console.WriteLine($"{file} does not exists.");
+                }
+            }
+        }
+        static void RegenMainPdf(string root, string dest)
+        {
+            var pdfs = Directory.GetFiles(root, "main.pdf", SearchOption.AllDirectories);
+
+            var pdfExtractor = new PdfRangeExtractorService();
+
+            // Options for extracting the main document (before EK-D)
+            //var mainDocumentOptions = new PdfExtractionOptions
+            //{
+            //    StartPageSelectionType = PageSelectionType.FirstPage,
+            //    EndPageSelectionType = PageSelectionType.Keyword,
+            //    EndKeyword = new KeywordOptions
+            //    {
+            //        Keyword = "SONUÇ VE ÖNERİLER",
+            //        Occurrence = KeywordOccurrence.Last,
+            //        IncludeMatchingPage = true,
+            //    }
+            //};
+
+            var mainDocumentOptions = new PdfExtractionOptions
+            {
+                StartPageSelectionType = PageSelectionType.Keyword,
+                StartKeyword = new KeywordOptions
+                {
+                    Keyword = "Fizibilite Çalışmalarıyla",
+                    Occurrence = KeywordOccurrence.First,
+                    IncludeMatchingPage = true,
+                },
+                EndPageSelectionType = PageSelectionType.LastPage
+            };
+
+            foreach (var pdf in pdfs)
+            {
+                pdfExtractor.ExtractRange(pdf, pdf.Replace(root, dest), mainDocumentOptions);
+            }
+
+        }
 
         static void CheckEkCExists()
         {
@@ -128,7 +523,7 @@ namespace DocProcessingSystem
 
         static void FixEkBFiles(string root, string dest)
         {
-            var ekB = Directory.GetFiles(root, "EK-B.pdf", SearchOption.AllDirectories);
+            var ekB = Directory.GetFiles(root, "*.pdf", SearchOption.AllDirectories);
             var textReplacer = new PdfTextReplacerService();
 
             foreach (var ekBPath in ekB)
@@ -598,10 +993,10 @@ namespace DocProcessingSystem
         static void ProcessDocuments()
         {
             // Get folder paths from arguments or use defaults
-            string parametricsFolder = @"C:\Users\Mert\Desktop\SZL2\Anıl Report Revision\archive\Anıl Final Report Merge\Parametric";
-            string deterministicsFolder = @"C:\Users\Mert\Desktop\SZL2\Anıl Report Revision\archive\Anıl Final Report Merge\Deterministic";
-            string post2008 = @"C:\Users\Mert\Desktop\Fırat Report Revision\MM_RAPOR\WORDasd"; // TODO: FIRAT
-            string analysisFolder = @"C:\Users\Mert\Desktop\extra"; // TODO: FIRAT
+            string parametricsFolder = @"C:\Users\Mert\Desktop\ANIL_REVISE 27.05.2025\words\Parametricasdasd";
+            string deterministicsFolder = @"C:\Users\Mert\Desktop\ANIL_REVISE 27.05.2025\words\Deterministic";
+            string post2008 = @"C:\Users\Mert\Desktop\Fırat Report Revision\MM_RAPOR\WORDasdasdasd"; // TODO: FIRAT
+            string analysisFolder = @"C:\Users\Mert\Desktop\ANIL_REVISE 27.05.2025\Analysis"; // TODO: FIRAT
 
             using (var converter = new WordToPdfConverter())
             using (var merger = new PdfMergerService())
@@ -634,6 +1029,57 @@ namespace DocProcessingSystem
 
             Console.WriteLine("\nProcess completed. Press any key to exit.");
             Console.ReadKey();
+        }
+
+        static void CheckEkFiles()
+        {
+            var root = @"C:\Users\Mert\Desktop\SZL2\Anıl Report Revision\Analysis";
+
+            var groups = FolderHelper.GroupFolders(root);
+
+            using (var reader = new PdfReaderService())
+            {
+
+                foreach (var group in groups)
+                {
+                    if (File.Exists(Path.Combine(group.MainFolder, "EK_KAROT.pdf")) && File.Exists(Path.Combine(group.MainFolder, "EK_DONATI.pdf")))
+                    {
+                        var readRontgen = Path.Combine(group.MainFolder, "EK_DONATI.pdf");
+                        var readBasınc = Path.Combine(group.MainFolder, "EK_KAROT.pdf");
+
+                        if (!reader.ContainsText(readRontgen, "Röntgen"))
+                        {
+                            Console.WriteLine($"{readRontgen} does not contains Röntgen keyword!");
+                        }
+
+                        if (!reader.ContainsText(readBasınc, "Basınç"))
+                        {
+                            Console.WriteLine($"{readBasınc} does not contains Basınç keyword!");
+                        }
+                    }
+                    else if (File.Exists(Path.Combine(group.MainFolder, "EK-B.pdf")) && File.Exists(Path.Combine(group.MainFolder, "EK-C.pdf")))
+                    {
+
+                        var readRontgen = Path.Combine(group.MainFolder, "EK-C.pdf");
+                        var readBasınc = Path.Combine(group.MainFolder, "EK-B.pdf");
+
+                        if (!reader.ContainsText(readRontgen, "Röntgen"))
+                        {
+                            Console.WriteLine($"{readRontgen} does not contains Röntgen keyword!");
+                        }
+
+                        if (!reader.ContainsText(readBasınc, "Basınç"))
+                        {
+                            Console.WriteLine($"{readBasınc} does not contains Basınç keyword!");
+                        }
+                    }
+                    else
+                    {
+                        Console.WriteLine($"{group.MainFolder} does not contain necessary files");
+                    }
+                }
+            }
+
         }
 
         static void HandleMasonry()
@@ -1095,7 +1541,7 @@ namespace DocProcessingSystem
 
         static void RenameDocumentFiles()
         {
-            var inputFolder = @"C:\Users\Mert\Desktop\Rename PDF";
+            var inputFolder = @"C:\Users\Mert\Desktop\RED";
             var excelFile = @"C:\Users\Mert\Desktop\SZL-2_TM_KISA_TR_ISIM_LISTE_20250319.xlsx";
 
             var tmNameJson = ConvertExcelToDictionary(excelFile);
@@ -1110,7 +1556,63 @@ namespace DocProcessingSystem
                 // Get the file extension to preserve it in the renamed file
                 string fileExtension = Path.GetExtension(document);
 
-                if (document.Contains("M00"))
+                if (document.Contains("FOY-A0"))
+                {
+                    List<int> ints = new() { 1, 2, 3 };
+
+                    foreach (var i in ints)
+                    {
+                        string preference = $"FOY-A0{i}";
+
+                        try
+                        {
+                            var (tmNo, buildingCode, buildingTmId) = FolderHelper.ExtractParts(document, "FOY");
+
+                            // Get the shortened name for this TM number
+                            var shortenedName = FindShortenedName(tmNo, tmNameJson)?.ToString();
+
+                            if (shortenedName == null) throw new ArgumentNullException("Shortened Name Not Found.");
+
+                            // Split the TM number to get area ID and TM ID
+                            var areaId = tmNo.Split("-")[0];
+                            var tmId = tmNo.Split("-")[1];
+
+                            var newName = $"TEI-B{areaId}-TM-{tmId}-{preference}-00_NT ({shortenedName}-ALTERNATIF {i} {Constants.ReportType["FOY"]}){fileExtension}";
+
+                            // Get the directory path from the original document
+                            string directoryPath = Path.GetDirectoryName(document);
+
+                            // Combine directory path with new filename
+                            string newFilePath = Path.Combine(directoryPath, newName);
+
+                            // Rename the file
+                            if (File.Exists(newFilePath))
+                            {
+                                Console.WriteLine($"Warning: A file with the name '{newName}' already exists. Skipping rename operation for {document}");
+                            }
+                            else
+                            {
+                                File.Move(document, newFilePath);
+                                Console.WriteLine($"Successfully renamed: {Path.GetFileName(document)} -> {newName}");
+                            }
+                        }
+                        catch (KeyNotFoundException)
+                        {
+                            Console.WriteLine($"Error: Could not find building code in dictionary for document: {document}");
+                        }
+                        catch (IndexOutOfRangeException)
+                        {
+                            Console.WriteLine($"Error: Invalid TM number format in document: {document}");
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"Error processing document {document}: {ex.Message}");
+                        }
+                    }
+
+
+                }
+                else if (document.Contains("M00"))
                 {
                     foreach (var preference in Constants.preferences)
                     {
@@ -1168,7 +1670,9 @@ namespace DocProcessingSystem
                     try
                     {
                         // Extract information from the filename
-                        var (tmNo, buildingCode, buildingTmId) = FolderHelper.ExtractParts(document);
+                        var (tmNo, buildingCode, buildingTmId) = FolderHelper.ExtractParts(document, "DGR");
+
+                        if (buildingCode == "19") buildingCode = "11";
 
                         // Get the shortened name for this TM number
                         var shortenedName = FindShortenedName(tmNo, tmNameJson)?.ToString();
@@ -1184,10 +1688,11 @@ namespace DocProcessingSystem
                         var tmId = tmNo.Split("-")[1];
 
                         // Create the new filename with the required format
-                        var newName = $"TEI-B{areaId}-TM-{tmId}-DIR-M{buildingCode}-{buildingTmId}_NT ({shortenedName}-{buildingName}){fileExtension}";
+                        var newName = $"TEI-B{areaId}-TM-{tmId}-DGR-M{buildingCode}-{buildingTmId}_NT ({shortenedName}-{buildingName} ACILGUCPAK){fileExtension}";
 
                         // Get the directory path from the original document
                         string directoryPath = Path.GetDirectoryName(document);
+                        //string directoryPath = @"C:\Users\Mert\Desktop\SZL2\KK_INCELEDI_DEGISTIRDI\output";
 
                         // Combine directory path with new filename
                         string newFilePath = Path.Combine(directoryPath, newName);
@@ -1221,7 +1726,7 @@ namespace DocProcessingSystem
 
         static void CopyUpperDirectory()
         {
-            var root = @"C:\Users\Mert\Desktop\Rename PDF";
+            var root = @"C:\Users\Mert\Desktop\KK\PUSHOVER";
             var allDocuments = Directory.GetFiles(root, "TEI*.pdf", SearchOption.AllDirectories);
 
             foreach (var file in allDocuments)
