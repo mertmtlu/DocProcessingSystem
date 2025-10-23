@@ -49,7 +49,7 @@ namespace DocProcessingSystem.Services
 
             foreach (var group in analysisGroups)
             {
-                Console.WriteLine($"Processing group: TM {group.TmNo}, Building {group.BuildingCode}-{group.BuildingTmId}");
+                //Console.WriteLine($"Processing group: TM {group.TmNo}, Building {group.BuildingCode}-{group.BuildingTmId}");
 
                 // Find relevant documents for this group
                 var relevantDocs = FindRelevantDocuments(sourceFolder, group);
@@ -60,7 +60,7 @@ namespace DocProcessingSystem.Services
                     continue;
                 }
 
-                Console.WriteLine($"Found {relevantDocs.Count} relevant documents");
+                //Console.WriteLine($"Found {relevantDocs.Count} relevant documents");
 
                 if (relevantDocs.Count != 1) throw new Exception($"Found duplicate words TM No: {group.TmNo}, Building Code: {group.BuildingCode}, Building TM ID: {group.BuildingTmId}");
 
@@ -72,7 +72,7 @@ namespace DocProcessingSystem.Services
                     try
                     {
                         //if (File.Exists(outputPath)) continue;
-                        _processor.Convert(docPath, outputPath, false);
+                        _processor.Convert(docPath, outputPath, false, false);
                         var sequence = GetMergeSequence(group);
 
                         Console.WriteLine($"Merging: {Path.GetFileNameWithoutExtension(sequence.OutputPath)}");
@@ -217,7 +217,7 @@ namespace DocProcessingSystem.Services
         public override void ProcessDocuments(string sourceFolder, ref List<FolderGroup> analysisGroups, in IPdfMerger merger)
         {
             // Process the specific code first
-            CreateEkFiles(sourceFolder, ref analysisGroups, in merger);
+            //CreateEkFiles(sourceFolder, ref analysisGroups, in merger);
 
             // Then call the base implementation
             base.ProcessDocuments(sourceFolder, ref analysisGroups, in merger);
@@ -228,7 +228,7 @@ namespace DocProcessingSystem.Services
         /// </summary>
         public override MergeSequence GetMergeSequence(FolderGroup folderGroup)
         {
-            CopyAdditionalFiles(folderGroup);
+            //CopyAdditionalFiles(folderGroup);
 
             //throw new NotImplementedException();
             string mainPdf = Path.Combine(folderGroup.MainFolder, "main.pdf");
@@ -244,16 +244,16 @@ namespace DocProcessingSystem.Services
                 switch (folderGroup.PathCount) 
                 {
                     case 1:
-                        additionalPdfs.Add(GetEkAFile(folderGroup));
+                        additionalPdfs.Add(Path.Combine(folderGroup.MainFolder, "TBDYResults", "EK-A.pdf"));
                         //additionalPdfs.Add(Path.Combine(post2008CoverPath, "EK-B.pdf"));
                         //additionalPdfs.Add(Path.Combine(folderGroup.MainFolder, "Kapak_DD2.pdf"));
                         //additionalPdfs.Add(Path.Combine(folderGroup.MainFolder, "2_Tespit_DD2.pdf"));
-                        additionalPdfs.Add(Path.Combine(folderGroup.MainFolder, "EK-B.pdf"));
+                        additionalPdfs.Add(Path.Combine(folderGroup.MainFolder, "TBDYResults", "EK-B.pdf"));
                         break;
                     case 2:
-                        additionalPdfs.Add(GetEkAFile(folderGroup));
-                        additionalPdfs.Add(Path.Combine(folderGroup.MainFolder, "EK-B.pdf"));
-                        additionalPdfs.Add(Path.Combine(folderGroup.Paths[1], "EK-C.pdf"));
+                        additionalPdfs.Add(Path.Combine(folderGroup.MainFolder, "TBDYResults", "EK-A.pdf"));
+                        additionalPdfs.Add(Path.Combine(folderGroup.MainFolder, "TBDYResults", "EK-B.pdf"));
+                        additionalPdfs.Add(Path.Combine(folderGroup.MainFolder, "TBDYResults", "EK-C.pdf"));
                         //additionalPdfs.Add(Path.Combine(post2008CoverPath, "EK-B_A-Blok.pdf"));
                         //additionalPdfs.Add(Path.Combine(folderGroup.MainFolder, "Kapak_DD2.pdf"));
                         //additionalPdfs.Add(Path.Combine(folderGroup.MainFolder, "2_Tespit_DD2.pdf"));
@@ -272,7 +272,7 @@ namespace DocProcessingSystem.Services
                 switch (folderGroup.PathCount)
                 {
                     case 1:
-                        additionalPdfs.Add(GetEkAFile(folderGroup));
+                        additionalPdfs.Add(Path.Combine(folderGroup.MainFolder, "TBDYResults", "EK-A.pdf"));
                         //additionalPdfs.Add(Path.Combine(post2008CoverPath, "EK-B.pdf"));
                         //additionalPdfs.Add(Path.Combine(folderGroup.MainFolder, "Kapak_DD1.pdf"));
                         //additionalPdfs.Add(Path.Combine(folderGroup.MainFolder, "2_Tespit_DD1.pdf"));
@@ -280,12 +280,12 @@ namespace DocProcessingSystem.Services
                         //additionalPdfs.Add(Path.Combine(folderGroup.MainFolder, "2_Tespit_DD2.pdf"));
                         //additionalPdfs.Add(Path.Combine(folderGroup.MainFolder, "Kapak_DD3.pdf"));
                         //additionalPdfs.Add(Path.Combine(folderGroup.MainFolder, "2_Tespit_DD3.pdf"));
-                        additionalPdfs.Add(Path.Combine(folderGroup.MainFolder, "EK-B.pdf"));
+                        additionalPdfs.Add(Path.Combine(folderGroup.MainFolder, "TBDYResults", "EK-B.pdf"));
                         break;
                     case 2:
-                        additionalPdfs.Add(GetEkAFile(folderGroup));
-                        additionalPdfs.Add(Path.Combine(folderGroup.MainFolder, "EK-B.pdf"));
-                        additionalPdfs.Add(Path.Combine(folderGroup.Paths[1], "EK-C.pdf"));
+                        additionalPdfs.Add(Path.Combine(folderGroup.MainFolder, "TBDYResults", "EK-A.pdf"));
+                        additionalPdfs.Add(Path.Combine(folderGroup.MainFolder, "TBDYResults", "EK-B.pdf"));
+                        additionalPdfs.Add(Path.Combine(folderGroup.MainFolder, "TBDYResults", "EK-C.pdf"));
                         //additionalPdfs.Add(Path.Combine(post2008CoverPath, "EK-B_A-Blok.pdf"));
                         //additionalPdfs.Add(Path.Combine(folderGroup.MainFolder, "Kapak_DD1.pdf"));
                         //additionalPdfs.Add(Path.Combine(folderGroup.MainFolder, "2_Tespit_DD1.pdf"));
@@ -321,7 +321,7 @@ namespace DocProcessingSystem.Services
             {
                 MainDocument = mainPdf,
                 AdditionalDocuments = additionalPdfs,
-                OutputPath = Path.Combine(folderGroup.MainFolder, $"TEI-B{areaId}-TM-{tmId}-DIR-M{folderGroup.BuildingCode}-{folderGroup.BuildingTmId}_nt.pdf"),
+                OutputPath = Path.Combine(folderGroup.MainFolder, $"TEI-B{areaId}-TM-{tmId}-DIR-M{folderGroup.BuildingCode}-{folderGroup.BuildingTmId}.pdf"),
                 Options = options
             };
         }
@@ -1050,7 +1050,7 @@ namespace DocProcessingSystem.Services
         {
             foreach (var group in analysisGroups)
             {
-                Console.WriteLine($"Processing group: TM {group.TmNo}, Building {group.BuildingCode}-{group.BuildingTmId}");
+                //Console.WriteLine($"Processing group: TM {group.TmNo}, Building {group.BuildingCode}-{group.BuildingTmId}");
 
                 try
                 {

@@ -51,7 +51,7 @@ namespace DocProcessingSystem.Services
                     return;
                 }
 
-                Console.WriteLine($"Converting {Path.GetFileName(inputPath)} to PDF");
+                //Console.WriteLine($"Converting {Path.GetFileName(inputPath)} to PDF");
                 doc = _wordApp.Documents.Open(inputPath);
                 // Remove background from all pages
                 RemoveBackgrounds(doc);
@@ -82,10 +82,10 @@ namespace DocProcessingSystem.Services
                 if (!string.Equals(inputPath, destinationPath, StringComparison.OrdinalIgnoreCase) && copyWord)
                 {
                     File.Copy(inputPath, destinationPath.Replace(".docx", "_nt.docx"), true); // 'true' to overwrite if file exists
-                    Console.WriteLine($"Original file copied to: {destinationPath}");
+                    //Console.WriteLine($"Original file copied to: {destinationPath}");
                 }
 
-                Console.WriteLine($"Successfully converted: {Path.GetFileName(inputPath)}");
+                //Console.WriteLine($"Successfully converted: {Path.GetFileName(inputPath)}");
             }
             catch (Exception ex)
             {

@@ -12,6 +12,7 @@ using System;
 using System.ComponentModel.DataAnnotations;
 using System.Diagnostics.CodeAnalysis;
 using System.Net.WebSockets;
+using System.Reflection.Metadata;
 using System.Security.Cryptography.X509Certificates;
 using static iTextSharp.text.pdf.PdfDocument;
 
@@ -26,7 +27,12 @@ namespace DocProcessingSystem
         /// </summary>
         static void Main(string[] args)
         {
-            PdfOperationsHelper.ConvertWordToPdfAsync(@"C:\Users\Mert\Desktop\Kapak", @"C:\Users\Mert\Desktop\Kapak", false, true).Wait();
+            Fırat.Run();
+
+            //var inputFolder = @"C:\Users\Mert\Desktop\ekstra 4 tm\raporlar";
+            //var outputFolder = @"C:\Users\Mert\Desktop\ekstra 4 tm\raporlar";
+
+            //PdfOperationsHelper.ConvertWordToPdfAsync(inputFolder, outputFolder, false, true).Wait();
             //PdfOperationsHelper.ProcessPdfDocuments();
             //GetTotalPageCount(@"C:\Users\Mert\Desktop\REPORTS");
             //CreateEkA(@"C:\Users\Mert\Desktop\Anıl EK-A\TM Folders");
@@ -53,7 +59,7 @@ namespace DocProcessingSystem
 
             //GenerateDonatiReports();
             //DeliveryHelper.GetEkParts(@"C:\users\Mert\Desktop\REPORTS", @"C:\Users\Mert\Desktop\REPORTSTM");
-            //DeliveryHelper.CreateRedReport(@"C:\Users\Mert\Desktop\Yeni Klasör (2)", @"C:\Users\Mert\Desktop\RED");
+            //DeliveryHelper.CreateRedReport(@"C:\Users\Mert\Desktop\ekstra 4 tm\raporlar", @"C:\Users\Mert\Desktop\ekstra 4 tm\RED raporları");
             //CountFiles(@"C:\Users\Mert\Desktop\Yeni klasör (2) - Kopya");
             //RenameDocumentFiles();
             //CopyFoyReports();
@@ -61,18 +67,274 @@ namespace DocProcessingSystem
             //ReArrangeCoverPages();
             //RegenMainPdf(@"C:\Users\Mert\Desktop\Yeni Klasör (2)", @"C:\Users\Mert\Desktop\Kapak");
             //MergeRedReports();
-            //PlaceSignaturesOnTeiDocument();
+            //PlaceSignaturesOnFoyDocument();
+            //PlaceSignaturesOnEachDocument();
+
+            //FindEkCFiles();
+            //GetTeiDocuments();
+            //MergePdfs();
+            //CopyPdfs();
+            //SaveMeFromRontgenWork(@"C:\Users\Mert\Desktop\SZL-3\SZL-3 SAHA");
         }
 
         #endregion
 
         #region Document Processing Functions
 
+        static string FindKeyValue(string key, Dictionary<string, string> dict)
+        {
+            var searchTerm = key
+                    .Replace(" BİNASI", "")
+                    .Replace(" EK BİNA", "")
+                    .Replace(" GÜÇLENDİRME", "")
+                    .Replace("ESKİ ", "")
+                    .Replace(" ZEMİN KAT", "")
+                    .Replace(" 1.KAT", "")
+                    .Replace(" 1. KAT", "")
+                    .Replace(" 2.KAT", "")
+                    .Replace(" 2. KAT", "")
+                    .Replace(" 3.KAT", "")
+                    .Replace(" 3. KAT", "")
+                    .Replace(" BODRUM KAT", "")
+                    .Replace("380 KV ", "")
+                    .Replace(" A BLOK", "")
+                    .Replace("+A BLOK", "")
+                    .Replace(" B BLOK", "")
+                    .Replace("+B BLOK", "")
+                    .Replace(" C BLOK", "")
+                    .Replace("+C BLOK", "");
 
+            foreach (var kvp in dict)
+            {
+                if (kvp.Key.Contains(searchTerm)) return kvp.Value;
+            }
+            try
+            {
+                throw new Exception();
+            }
+            catch (Exception ex)
+            {
+                return "";
+            }
+        }
+        static bool Check(string folderName, string[] ekFiles)
+        {
+            foreach (var ek in ekFiles)
+            {
+                if (ek.Contains(folderName)) return true;
+            }
+            return false;
+        }
+        static void SaveMeFromRontgenWork(string root)
+        {
+            var subDirectories = Directory.GetDirectories(root);
+
+            var ekFiles = Directory.GetFiles(root, "EK-C.pdf", SearchOption.AllDirectories);
+
+            Dictionary<string, string> keyValuePairs = new()
+            {
+                { "KUMANDA", "M01_01" },
+                { "KUMANDA A BLOK 1. KAT", "M01_01" },
+                { "KUMANDA A BLOK 2. KAT", "M01_01" },
+                { "KUMANDA A BLOK BODRUM KAT", "M01_01" },
+                { "KUMANDA A BLOK ZEMİN KAT", "M01_01" },
+                { "KUMANDA B BLOK 1. KAT", "M0_011" },
+                { "KUMANDA B BLOK 2. KAT", "M01_01" },
+                { "KUMANDA B BLOK BODRUM KAT", "M01_01" },
+                { "KUMANDA B BLOK ZEMİN KAT", "M01_01" },
+                { "KUMANDA BİNASI", "M01_01" },
+                { "KUMANDA İLAVE", "M01_01" },
+                { "380 KUMANDA 1. KAT", "M01_01" },
+                { "380 KUMANDA ZEMİN KAT", "M01_01" },
+                { "380 KV KUMANDA BİNASI 1.KAT", "M01_01" },
+                { "380 KV KUMANDA BİNASI ZEMİN KAT", "M01_01" },
+                { "KAPALI ŞALT-1", "M02_01" },
+                { "KAPALI ŞALT-2", "M02_02" },
+                { "KAPALI SALT", "M02_01" },
+                { "KAPALI ŞALT", "M02_01" },
+                { "KAPALI ŞALT A BLOK", "M02_01" },
+                { "KAPALI ŞALT B BLOK", "M02_01" },
+                { "KAPALI ŞALT C BLOK", "M02_01" },
+                { "KAPALI ŞALT D BLOK", "M02_01" },
+                { "GÜVENLIK", "M10_01" },
+                { "GÜVENLİK", "M10_01" },
+                { "GÜVENLİK BODRUM", "M10_01" },
+                { "GÜVENLİK ZEMİN", "M10_01" },
+                { "GÜVENLİK 1. KAT", "M10_01" },
+                { "GÜVENLIK 2. KAT", "M10_01" },
+                { "GÜVENLİK BODRUM KAT", "M10_01" },
+                { "RÖLE", "M05_01" },
+                { "GIS", "M07_01" },
+                { "TRAFO", "M11_01" },
+                { "MC VE KUMANDA", "M04_01" },
+                { "MC KUMANDA 1. KAT", "M04_01" },
+                { "MC KUMANDA BODRUM KAT", "M04_01" },
+                { "MC KUMANDA ZEMİN KAT", "M04_01" },
+                { "MC VE KUMANDA 1. KAT", "M04_01" },
+                { "MC VE KUMANDA BODRUM KAT", "M04_01" },
+                { "MC VE KUMANDA ZEMİN KAT", "M04_01" },
+                { "MC BODRUM KAT", "M03_01" },
+                { "MC ZEMİN KAT", "M03_01" },
+                { "TELEKOM", "M06_01" },
+                { "TELEKOM-", "M06_01" },
+                { "TELEKOM RÖLE", "TELEKOM RÖLE" },
+                { "YARDIMCI SERVİS TR BİNASI", "YARDIMCI SERVİS TR BİNASI" },
+                { "ELEKTRONİK", "ELEKTRONİK" },
+                { "PANO", "PANO" },
+
+            };
+
+            foreach (var sub in subDirectories)
+            {
+                var ltFolder = Directory.GetDirectories(sub).FirstOrDefault(f => f.Contains("LT"));
+                var ltSubfolders = ltFolder is not null ? Directory.GetDirectories(ltFolder) : null;
+
+                if (ltSubfolders != null)
+                {
+                    foreach (var ltSubfolder in ltSubfolders)
+                    {
+                        var rontgenFolder = Directory.GetDirectories(ltSubfolder).FirstOrDefault(f => f.Contains("RÖNTGEN"));
+
+                        if (rontgenFolder != null)
+                        {
+                            var buildings = Directory.GetDirectories(rontgenFolder);
+
+                            foreach (var building in buildings)
+                            {
+                                var checker = Directory.GetFiles(building,"*", SearchOption.AllDirectories).Length > 0;
+
+                                var folderName = $"{Path.GetFileName(ltSubfolder).Substring(0, 5)}: {Path.GetFileName(building)}";
+
+                                //var folderName = $"{Path.GetFileName(ltSubfolder).Substring(0, 5)}_{FindKeyValue(Path.GetFileName(building), keyValuePairs)}";
+
+                                //if (Check(folderName, ekFiles))
+                                //{
+                                //    folderName += ": true";
+                                //}
+
+                                if (!checker)
+                                {
+                                    folderName += " sıkıntı";
+                                }
+
+                                Console.WriteLine(folderName);
+                            }
+                        }
+                        else
+                        {
+                            Console.WriteLine($"{Path.GetFileName(ltSubfolder).Substring(0, 5)}: None");
+                        }
+
+                    }
+                }
+                else
+                {
+                    Console.WriteLine($"Subfolder not found in: {ltFolder}");
+                }
+            }
+        }
+        static void CopyPdfs()
+        {
+            string root = @"C:\Users\Mert\Downloads\SZL-3_Hakedis-20_Hazirlik (31.07.2025)";
+            string dest = @"C:\Users\Mert\Desktop\hk20";
+
+            var pdfs = Directory.GetFiles(root, "*.pdf", SearchOption.AllDirectories);
+
+            foreach (var pdf in pdfs)
+            {
+                var pdfName = Path.GetFileName(pdf);
+
+                var destination = Path.Combine(dest, pdfName);
+
+                if (File.Exists(destination)) Console.WriteLine($"{pdfName} exists!!");
+
+                File.Copy(pdf, destination, true);
+            }
+        }
+        static void MergePdfs()
+        {
+            string root = @"C:\Users\Mert\Desktop\HK20_1";
+            string dest = @"C:\Users\Mert\Desktop\merged_1";
+
+
+            //PdfOperationsHelper.ConvertWordToPdfAsync(root, root, false, true, 8).Wait();
+
+            var pdfs = Directory.GetFiles(root, "TEI*.pdf", SearchOption.AllDirectories);
+            using (var merger = new PdfMergerService())
+            {
+                var mergeOption = new MergeOptions
+                {
+                    PreserveBookmarks = true
+                };
+
+                foreach (var pdf in pdfs)
+                {
+                    string folderPath = Path.GetDirectoryName(pdf);
+
+                    var ekFiles = Directory.GetFiles(folderPath, "EK-*.pdf", SearchOption.TopDirectoryOnly)
+                        .Order()
+                        .ToList();
+
+                    var MergeSequence = new MergeSequence
+                    {
+                        MainDocument = pdf,
+                        AdditionalDocuments = ekFiles,
+                        OutputPath = Path.Combine(dest, Path.GetFileName(pdf)),
+                        Options = mergeOption
+                    };
+
+                    merger.MergePdf(MergeSequence);
+                }
+            }
+        }
+        static void GetTeiDocuments()
+        {
+            string root = @"C:\Users\Mert\Downloads\SZL-3\SZL-3";
+            string dest = @"C:\Users\Mert\Downloads\SZL-3\out";
+
+            var pdfs = Directory.GetFiles(root, "TEI*.pdf", SearchOption.AllDirectories);
+
+            foreach (var pdf in pdfs)
+            {
+                var type = Constants.ReportTypes.Find(item => pdf.Contains(item.Pattern));
+
+                if (type == null)
+                {
+                    Console.WriteLine($"{Path.GetFileNameWithoutExtension(pdf)} does not contain any of patterns: {pdf}");
+                    continue;
+                }
+
+                var (tmNo, buildingCode, buildingTmID) = FolderHelper.ExtractParts(pdf, type.Pattern);
+                var areaId = tmNo.Split("-")[0];
+                var destination = Path.Combine(dest, $"BOLGE-{areaId}");
+
+                if (!Directory.Exists(destination))
+                {
+                    Directory.CreateDirectory(destination);
+                }
+
+                File.Copy(pdf, Path.Combine(destination, Path.GetFileName(pdf)), true);
+            }
+
+
+        }
+        static void FindEkCFiles()
+        {
+            string root = @"D:\SZL-3 2008 BA (AI, MM, SO)\SZL-3 SAHA";
+
+            var pdfs = Directory.GetFiles(root, "EK-C.pdf", SearchOption.AllDirectories);
+
+            foreach (var pdf in pdfs)
+            {
+                var (tmNo, buildingCode, buildingTmId) = FolderHelper.ExtractParts(pdf);
+
+                Console.WriteLine($"{Path.GetFileName(Path.GetDirectoryName(pdf))}");
+            }
+        }
         static void PlaceSignaturesOnEachDocument()
         {
-            var root = @"";
-            var dest = @"";
+            var root = @"C:\Users\Mert\Desktop\ekstra 4 tm\raporlar";
+            var dest = @"C:\Users\Mert\Desktop\ekstra 4 tm\raporlar2";
             var pdfs = Directory.GetFiles(root, "*.pdf", SearchOption.AllDirectories);
 
             foreach (var pdf in pdfs)
@@ -86,7 +348,7 @@ namespace DocProcessingSystem
                     Directory.CreateDirectory(directoryPath);
                 }
 
-                if (Path.GetFileNameWithoutExtension(pdf).Contains("-FOY-"))
+                if (Path.GetFileNameWithoutExtension(pdf).Contains("-FOY-M") || Path.GetFileNameWithoutExtension(pdf).Contains("-FOY-A"))
                 {
                     File.Copy(pdf, destination, true);
                 }
@@ -96,7 +358,6 @@ namespace DocProcessingSystem
                 }
             }
         }
-
         /// <summary>
         /// Places signature images on the TEI PDF document
         /// </summary>
@@ -131,10 +392,10 @@ namespace DocProcessingSystem
                     // Ahmet Yakut signature (upper right signature area)
                     (ahmetYakutSignature, new ImagePlacementOptions
                     {
-                        PageNumber = 1,
-                        X = pageWidth - PdfImagePlacementService.InchesToPoints(7f), // ~2.8 inches from right edge
-                        Y = pageHeight - PdfImagePlacementService.InchesToPoints(11f), // ~2.2 inches from top
-                        Height = PdfImagePlacementService.MillimetersToPoints(20f), // 0.8 inch height
+                        PlaceOnAllPages = true,
+                        X = pageWidth - PdfImagePlacementService.InchesToPoints(10f),
+                        Y = pageHeight - PdfImagePlacementService.InchesToPoints(16f),
+                        Height = PdfImagePlacementService.MillimetersToPoints(20f * 1.41428571429f),
                         MaintainAspectRatio = true,
                         PlaceInBackground = false, // Place over text
                         Opacity = 1.0f
@@ -143,10 +404,10 @@ namespace DocProcessingSystem
                     // Barış Binici signature (lower right signature area)
                     (barisBiniciSignature, new ImagePlacementOptions
                     {
-                        PageNumber = 1,
-                        X = pageWidth - PdfImagePlacementService.InchesToPoints(3.2f), // ~2.8 inches from right edge
-                        Y = pageHeight - PdfImagePlacementService.InchesToPoints(11f), // ~3.5 inches from top
-                        Height = PdfImagePlacementService.MillimetersToPoints(23.3f), // 0.8 inch height
+                        PlaceOnAllPages = true,
+                        X = pageWidth - PdfImagePlacementService.InchesToPoints(5.4f),
+                        Y = pageHeight - PdfImagePlacementService.InchesToPoints(16f),
+                        Height = PdfImagePlacementService.MillimetersToPoints(23.3f * 1.41428571429f),
                         MaintainAspectRatio = true,
                         PlaceInBackground = false, // Place over text
                         Opacity = 1.0f
@@ -170,7 +431,6 @@ namespace DocProcessingSystem
                 throw;
             }
         }
-        
         /// <summary>
         /// Places signature images on the TEI PDF document
         /// </summary>
@@ -186,8 +446,8 @@ namespace DocProcessingSystem
             string finalOutputPath = outputPdfPath ?? defaultOutputPath;
 
             // Signature image paths
-            string ahmetYakutSignature = @"C:\Users\Mert\Desktop\Ahmet Yakut.png";
-            string barisBiniciSignature = @"C:\Users\Mert\Desktop\Barış Binici.png";
+            string ahmetYakutSignature = @"C:\Users\Mert\Desktop\Risk Raporları ile ilgili her şey\Ahmet Yakut.png";
+            string barisBiniciSignature = @"C:\Users\Mert\Desktop\Risk Raporları ile ilgili her şey\Barış Binici.png";
 
             try
             {
@@ -263,7 +523,6 @@ namespace DocProcessingSystem
                 pdfExtractor.ExtractRange(pdf, pdf.Replace("kapak", "rearrenged"), option);
             }
         }
-
         static void MergeRedReports()
         {
             string root = @"C:\Users\Mert\Desktop\Kapak";
@@ -298,7 +557,6 @@ namespace DocProcessingSystem
                 }
             }
         }
-
         static void CopyFoyReports()
         {
             string root = @"C:\Users\Mert\Desktop\Yeni Klasör (2)";
@@ -349,10 +607,17 @@ namespace DocProcessingSystem
                 { 6, @"C:\Users\Mert\Desktop\input donati rapor\_DONATI RAPOR6.xlsm" },
                 { 7, @"C:\Users\Mert\Desktop\input donati rapor\_DONATI RAPOR7.xlsm" },
                 { 8, @"C:\Users\Mert\Desktop\input donati rapor\_DONATI RAPOR8.xlsm" },
-                { 11, @"C:\Users\Mert\Desktop\input donati rapor\_DONATI RAPOR11.xlsm" }
+                { 9, @"C:\Users\Mert\Desktop\input donati rapor\_DONATI RAPOR9.xlsm" },
+                { 10, @"C:\Users\Mert\Desktop\input donati rapor\_DONATI RAPOR10.xlsm" },
+                { 11, @"C:\Users\Mert\Desktop\input donati rapor\_DONATI RAPOR11.xlsm" },
+                { 12, @"C:\Users\Mert\Desktop\input donati rapor\_DONATI RAPOR12.xlsm" },
+                { 13, @"C:\Users\Mert\Desktop\input donati rapor\_DONATI RAPOR13.xlsm" },
+                { 14, @"C:\Users\Mert\Desktop\input donati rapor\_DONATI RAPOR14.xlsm" },
+                { 15, @"C:\Users\Mert\Desktop\input donati rapor\_DONATI RAPOR15.xlsm" },
+                { 16, @"C:\Users\Mert\Desktop\input donati rapor\_DONATI RAPOR16e.xlsm" },
             };
 
-            EkCHelper.GenerateExcelReport(@"C:\Users\Mert\Desktop\gen.xlsm", d, @"C:\Users\Mert\Desktop\outfiles");
+            EkCHelper.GenerateExcelReport(@"C:\Users\Mert\Desktop\input donati rapor\gen.xlsm", d, @"C:\Users\Mert\Desktop\outfiles");
         }
         static void CheckEkCMissingFiles()
         {
@@ -443,7 +708,6 @@ namespace DocProcessingSystem
             }
 
         }
-
         static void CheckEkCExists()
         {
             string root = @"C:\Users\Mert\Desktop\SZL-3\SZL-3 SAHA\9.BÖLGE\TM_Folders";
@@ -460,7 +724,6 @@ namespace DocProcessingSystem
                 }
             }
         }
-
         static void CheckEkBFiles(string root)
         {
             var ekB = Directory.GetFiles(root, "EK-B.pdf", SearchOption.AllDirectories);
@@ -502,7 +765,6 @@ namespace DocProcessingSystem
                 }
             }
         }
-
         static void CheckEkBFiles(string root, string dest)
         {
             var ekB = Directory.GetFiles(root, "EK-B.pdf", SearchOption.AllDirectories);
@@ -520,7 +782,6 @@ namespace DocProcessingSystem
                 File.Copy(ekBPath, destinationPath, true);
             }
         }
-
         static void FixEkBFiles(string root, string dest)
         {
             var ekB = Directory.GetFiles(root, "*.pdf", SearchOption.AllDirectories);
@@ -531,7 +792,6 @@ namespace DocProcessingSystem
                 textReplacer.ReplaceCapYukseklik(ekBPath, ekBPath.Replace(root, dest));
             }
         }
-
         static void TryChangeText()
         {
             string inputFolder = @"C:\Users\Mert\Desktop\Yeni klasör (3)";
@@ -573,7 +833,6 @@ namespace DocProcessingSystem
             //    File.Copy(file, dest);
             //}
         }
-
         static void CheckHakedisFolder()
         {
             string rootFolder = @"C:\Users\Mert\Desktop\HK18 (FINAL)";
@@ -710,7 +969,6 @@ namespace DocProcessingSystem
                 }
             }
         }
-
         static void CheckAndFixHakedisFolder()
         {
             string rootFolder = @"C:\Users\Mert\Desktop\HK18 (FINAL) - Kopya";
@@ -879,7 +1137,6 @@ namespace DocProcessingSystem
                 }
             }
         }
-
         /// <summary>
         /// Fixes a PDF by replacing its cover page with the correct template
         /// </summary>
@@ -955,7 +1212,6 @@ namespace DocProcessingSystem
                 throw;
             }
         }
-
         /// <summary>
         /// Regenerates the main PDF file by merging all component PDFs including the fixed EK-C
         /// </summary>
@@ -989,7 +1245,6 @@ namespace DocProcessingSystem
                 throw;
             }
         }
-
         static void ProcessDocuments()
         {
             // Get folder paths from arguments or use defaults
@@ -1030,7 +1285,6 @@ namespace DocProcessingSystem
             Console.WriteLine("\nProcess completed. Press any key to exit.");
             Console.ReadKey();
         }
-
         static void CheckEkFiles()
         {
             var root = @"C:\Users\Mert\Desktop\SZL2\Anıl Report Revision\Analysis";
@@ -1081,7 +1335,6 @@ namespace DocProcessingSystem
             }
 
         }
-
         static void HandleMasonry()
         {
             string inputFolderLocation = @"C:\Users\Mert\Desktop\Selin Report Revision\v7\Automatic";
@@ -1107,7 +1360,6 @@ namespace DocProcessingSystem
                 }
             }
         }
-
         static void HandleCrisis()
         {
             var inputFolder = @"C:\Users\Mert\Desktop\HK-13";
@@ -1170,7 +1422,6 @@ namespace DocProcessingSystem
                 }
             }
         }
-
         static void DeleteOnePageEkC()
         {
             var root = @"C:\Users\Mert\Desktop\SZL-3\SZL-3 SAHA";
@@ -1276,7 +1527,6 @@ namespace DocProcessingSystem
 
             Console.WriteLine("PDF merging process completed");
         }
-
         static void ExtractPagesFromPdf(string file, string outputFolder)
         {
             var service = new PdfRangeExtractorService();
@@ -1347,7 +1597,6 @@ namespace DocProcessingSystem
                 rontgenOptions
                 );
         }
-
         /// <summary>
         /// Processes all subfolders in the input directory, merging PDFs and outputting to the corresponding output directory
         /// </summary>
@@ -1404,7 +1653,6 @@ namespace DocProcessingSystem
 
             Console.WriteLine("Subfolder processing completed.");
         }
-
         /// <summary>
         /// Processes a single subfolder, merging all PDFs with the cover page
         /// </summary>
@@ -1449,7 +1697,6 @@ namespace DocProcessingSystem
                 Console.WriteLine($"Merged PDF saved to: {outputFilePath}");
             }
         }
-
         static void RenameEkAFiles()
         {
             var root = @"C:\Users\Mert\Desktop\fırat ek a";
@@ -1538,10 +1785,9 @@ namespace DocProcessingSystem
 
             Console.WriteLine("Done.");
         }
-
         static void RenameDocumentFiles()
         {
-            var inputFolder = @"C:\Users\Mert\Desktop\RED";
+            var inputFolder = @"C:\Users\Mert\Desktop\hk20";
             var excelFile = @"C:\Users\Mert\Desktop\SZL-2_TM_KISA_TR_ISIM_LISTE_20250319.xlsx";
 
             var tmNameJson = ConvertExcelToDictionary(excelFile);
@@ -1665,7 +1911,7 @@ namespace DocProcessingSystem
                         }
                     }
                 }
-                else
+                else if (document.Contains("DGR"))
                 {
                     try
                     {
@@ -1721,9 +1967,64 @@ namespace DocProcessingSystem
                         Console.WriteLine($"Error processing document {document}: {ex.Message}");
                     }
                 }
+                else if (document.Contains("DIR"))
+                {
+                    try
+                    {
+                        // Extract information from the filename
+                        var (tmNo, buildingCode, buildingTmId) = FolderHelper.ExtractParts(document, "DIR");
+
+                        if (buildingCode == "19") buildingCode = "11";
+
+                        // Get the shortened name for this TM number
+                        var shortenedName = FindShortenedName(tmNo, tmNameJson)?.ToString();
+
+                        if (shortenedName == null) throw new ArgumentNullException("Shortened Name Not Found.");
+
+                        // Get the building name from our constants dictionary
+                        var buildingCodeInt = Convert.ToInt32(buildingCode);
+                        var buildingName = Constants.CodeToName[buildingCodeInt];
+
+                        // Split the TM number to get area ID and TM ID
+                        var areaId = tmNo.Split("-")[0];
+                        var tmId = tmNo.Split("-")[1];
+
+                        // Create the new filename with the required format
+                        var newName = $"TEI-B{areaId}-TM-{tmId}-DIR-M{buildingCode}-{buildingTmId}_NT ({shortenedName}-{buildingName} ACILGUCPAK){fileExtension}";
+
+                        // Get the directory path from the original document
+                        string directoryPath = Path.GetDirectoryName(document);
+                        //string directoryPath = @"C:\Users\Mert\Desktop\SZL2\KK_INCELEDI_DEGISTIRDI\output";
+
+                        // Combine directory path with new filename
+                        string newFilePath = Path.Combine(directoryPath, newName);
+
+                        // Rename the file
+                        if (File.Exists(newFilePath))
+                        {
+                            Console.WriteLine($"Warning: A file with the name '{newName}' already exists. Skipping rename operation for {document}");
+                        }
+                        else
+                        {
+                            File.Move(document, newFilePath);
+                            Console.WriteLine($"Successfully renamed: {Path.GetFileName(document)} -> {newName}");
+                        }
+                    }
+                    catch (KeyNotFoundException)
+                    {
+                        Console.WriteLine($"Error: Could not find building code in dictionary for document: {document}");
+                    }
+                    catch (IndexOutOfRangeException)
+                    {
+                        Console.WriteLine($"Error: Invalid TM number format in document: {document}");
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Error processing document {document}: {ex.Message}");
+                    }
+                }
             }
         }
-
         static void CopyUpperDirectory()
         {
             var root = @"C:\Users\Mert\Desktop\KK\PUSHOVER";
@@ -1753,7 +2054,6 @@ namespace DocProcessingSystem
                 }
             }
         }
-
         static object FindShortenedName(string tmNo, List<Dictionary<string, object>> e)
         {
             foreach (var item in e)
@@ -1836,7 +2136,6 @@ namespace DocProcessingSystem
 
             return result;
         }
-
         static void CopyDirectory(string sourceDir, string destinationDir)
         {
             if (!Directory.Exists(destinationDir))
@@ -1859,7 +2158,6 @@ namespace DocProcessingSystem
                 CopyDirectory(directory, destDir);
             }
         }
-
         /// <summary>
         /// Gets a folder path from arguments or user input
         /// </summary>
@@ -1880,7 +2178,6 @@ namespace DocProcessingSystem
 
             return input;
         }
-
         static void GetTotalPageCount(string folderPath)
         {
             int totalPages = 0;
@@ -1894,7 +2191,6 @@ namespace DocProcessingSystem
 
             Console.WriteLine($"TOTAL COUNT OF PAGES: {totalPages}");
         }
-
         static int GetPdfPageCount(string pathToPdf)
         {
             int totalPages = 0;

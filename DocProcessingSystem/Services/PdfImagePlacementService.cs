@@ -1,5 +1,6 @@
 ﻿using System;
 using System.IO;
+using System.Linq;
 using iTextSharp.text;
 using iTextSharp.text.pdf;
 
@@ -12,8 +13,19 @@ namespace DocProcessingSystem.Services
     {
         /// <summary>
         /// Page number where the image should be placed (1-based index)
+        /// Ignored when PlaceOnAllPages is true
         /// </summary>
         public int PageNumber { get; set; } = 1;
+
+        /// <summary>
+        /// Whether to place the image on all pages of the PDF
+        /// </summary>
+        public bool PlaceOnAllPages { get; set; } = false;
+
+        /// <summary>
+        /// Specific pages to place the image on (1-based index). If null or empty, uses PageNumber or PlaceOnAllPages
+        /// </summary>
+        public int[] SpecificPages { get; set; } = null;
 
         /// <summary>
         /// X coordinate for image placement (in points, from left edge)
@@ -74,6 +86,11 @@ namespace DocProcessingSystem.Services
         /// Maximum height the image can occupy (for auto-scaling)
         /// </summary>
         public float MaxHeight { get; set; } = 0;
+
+        /// <summary>
+        /// Skip certain pages when using PlaceOnAllPages (1-based index)
+        /// </summary>
+        public int[] SkipPages { get; set; } = null;
     }
 
     /// <summary>
@@ -99,7 +116,7 @@ namespace DocProcessingSystem.Services
     public static class PdfImagePlacementService
     {
         /// <summary>
-        /// Adds an image to a specific page of an existing PDF
+        /// Adds an image to PDF pages based on the specified options
         /// </summary>
         /// <param name="inputPdfPath">Path to the input PDF file</param>
         /// <param name="outputPdfPath">Path for the output PDF file</param>
@@ -111,11 +128,14 @@ namespace DocProcessingSystem.Services
 
             using (var reader = new PdfReader(inputPdfPath))
             {
-                // Validate page number
-                if (options.PageNumber < 1 || options.PageNumber > reader.NumberOfPages)
+                var targetPages = GetTargetPages(options, reader.NumberOfPages);
+
+                // Validate all target pages are within range
+                var invalidPages = targetPages.Where(p => p < 1 || p > reader.NumberOfPages).ToArray();
+                if (invalidPages.Any())
                 {
-                    throw new ArgumentOutOfRangeException(nameof(options.PageNumber),
-                        $"Page number {options.PageNumber} is out of range. PDF has {reader.NumberOfPages} pages.");
+                    throw new ArgumentOutOfRangeException(nameof(options),
+                        $"Page numbers {string.Join(", ", invalidPages)} are out of range. PDF has {reader.NumberOfPages} pages.");
                 }
 
                 using (var outputStream = new FileStream(outputPdfPath, FileMode.Create))
@@ -124,7 +144,11 @@ namespace DocProcessingSystem.Services
 
                     try
                     {
-                        PlaceImageOnPage(stamper, imagePath, options);
+                        foreach (var pageNumber in targetPages)
+                        {
+                            var pageOptions = CreatePageSpecificOptions(options, pageNumber);
+                            PlaceImageOnPage(stamper, imagePath, pageOptions);
+                        }
                     }
                     finally
                     {
@@ -133,7 +157,62 @@ namespace DocProcessingSystem.Services
                 }
             }
 
-            Console.WriteLine($"Image successfully placed on page {options.PageNumber} of PDF: {outputPdfPath}");
+            var pageDescription = options.PlaceOnAllPages ? "all pages" :
+                                 options.SpecificPages?.Length > 1 ? $"{options.SpecificPages.Length} pages" :
+                                 $"page {options.PageNumber}";
+
+            Console.WriteLine($"Image successfully placed on {pageDescription} of PDF: {outputPdfPath}");
+        }
+
+        /// <summary>
+        /// Places an image on all pages of a PDF (convenience method)
+        /// </summary>
+        /// <param name="inputPdfPath">Path to the input PDF file</param>
+        /// <param name="outputPdfPath">Path for the output PDF file</param>
+        /// <param name="imagePath">Path to the image file</param>
+        /// <param name="position">Position where to place the image</param>
+        /// <param name="margin">Margin from edges (in points)</param>
+        /// <param name="placeInBackground">Whether to place behind text</param>
+        /// <param name="skipPages">Pages to skip (1-based index)</param>
+        public static void PlaceImageOnAllPages(string inputPdfPath, string outputPdfPath, string imagePath,
+            ImagePosition position = ImagePosition.BottomRight, float margin = 36f,
+            bool placeInBackground = false, int[] skipPages = null)
+        {
+            var options = new ImagePlacementOptions
+            {
+                PlaceOnAllPages = true,
+                Position = position,
+                Margin = margin,
+                PlaceInBackground = placeInBackground,
+                SkipPages = skipPages
+            };
+
+            PlaceImageOnPdf(inputPdfPath, outputPdfPath, imagePath, options);
+        }
+
+        /// <summary>
+        /// Places a watermark image on all pages of a PDF
+        /// </summary>
+        /// <param name="inputPdfPath">Path to the input PDF file</param>
+        /// <param name="outputPdfPath">Path for the output PDF file</param>
+        /// <param name="watermarkImagePath">Path to the watermark image file</param>
+        /// <param name="opacity">Transparency level (0.0 to 1.0)</param>
+        /// <param name="position">Position of the watermark</param>
+        /// <param name="skipPages">Pages to skip watermarking</param>
+        public static void AddWatermarkToAllPages(string inputPdfPath, string outputPdfPath, string watermarkImagePath,
+            float opacity = 0.3f, ImagePosition position = ImagePosition.MiddleCenter, int[] skipPages = null)
+        {
+            var options = new ImagePlacementOptions
+            {
+                PlaceOnAllPages = true,
+                Position = position,
+                PlaceInBackground = true,
+                Opacity = opacity,
+                SkipPages = skipPages,
+                MaintainAspectRatio = true
+            };
+
+            PlaceImageOnPdf(inputPdfPath, outputPdfPath, watermarkImagePath, options);
         }
 
         /// <summary>
@@ -163,7 +242,13 @@ namespace DocProcessingSystem.Services
                         foreach (var (imagePath, options) in imageConfigs)
                         {
                             ValidateImageConfig(imagePath, options, reader.NumberOfPages);
-                            PlaceImageOnPage(stamper, imagePath, options);
+                            var targetPages = GetTargetPages(options, reader.NumberOfPages);
+
+                            foreach (var pageNumber in targetPages)
+                            {
+                                var pageOptions = CreatePageSpecificOptions(options, pageNumber);
+                                PlaceImageOnPage(stamper, imagePath, pageOptions);
+                            }
                         }
                     }
                     finally
@@ -173,7 +258,62 @@ namespace DocProcessingSystem.Services
                 }
             }
 
-            Console.WriteLine($"Successfully placed {imageConfigs.Length} images on PDF: {outputPdfPath}");
+            var totalPlacements = imageConfigs.Sum(config => GetTargetPages(config.options, 0).Length);
+            Console.WriteLine($"Successfully placed {imageConfigs.Length} images with {totalPlacements} total placements on PDF: {outputPdfPath}");
+        }
+
+        /// <summary>
+        /// Gets the target pages based on the options
+        /// </summary>
+        private static int[] GetTargetPages(ImagePlacementOptions options, int totalPages)
+        {
+            if (options.SpecificPages != null && options.SpecificPages.Length > 0)
+            {
+                // Use specific pages, excluding any skip pages
+                var pages = options.SpecificPages.ToList();
+                if (options.SkipPages != null)
+                {
+                    pages = pages.Except(options.SkipPages).ToList();
+                }
+                return pages.ToArray();
+            }
+
+            if (options.PlaceOnAllPages)
+            {
+                // Generate all page numbers, excluding skip pages
+                var allPages = Enumerable.Range(1, totalPages).ToList();
+                if (options.SkipPages != null)
+                {
+                    allPages = allPages.Except(options.SkipPages).ToList();
+                }
+                return allPages.ToArray();
+            }
+
+            // Single page placement
+            return new[] { options.PageNumber };
+        }
+
+        /// <summary>
+        /// Creates page-specific options from the base options
+        /// </summary>
+        private static ImagePlacementOptions CreatePageSpecificOptions(ImagePlacementOptions options, int pageNumber)
+        {
+            return new ImagePlacementOptions
+            {
+                PageNumber = pageNumber,
+                X = options.X,
+                Y = options.Y,
+                Width = options.Width,
+                Height = options.Height,
+                MaintainAspectRatio = options.MaintainAspectRatio,
+                Position = options.Position,
+                Margin = options.Margin,
+                Rotation = options.Rotation,
+                Opacity = options.Opacity,
+                PlaceInBackground = options.PlaceInBackground,
+                MaxWidth = options.MaxWidth,
+                MaxHeight = options.MaxHeight
+            };
         }
 
         /// <summary>
@@ -399,10 +539,12 @@ namespace DocProcessingSystem.Services
             if (!File.Exists(imagePath))
                 throw new FileNotFoundException($"Image file not found: {imagePath}");
 
-            if (options.PageNumber < 1 || options.PageNumber > totalPages)
+            var targetPages = GetTargetPages(options, totalPages);
+            var invalidPages = targetPages.Where(p => p < 1 || p > totalPages).ToArray();
+            if (invalidPages.Any())
             {
-                throw new ArgumentOutOfRangeException(nameof(options.PageNumber),
-                    $"Page number {options.PageNumber} is out of range. PDF has {totalPages} pages.");
+                throw new ArgumentOutOfRangeException(nameof(options),
+                    $"Page numbers {string.Join(", ", invalidPages)} are out of range. PDF has {totalPages} pages.");
             }
         }
 

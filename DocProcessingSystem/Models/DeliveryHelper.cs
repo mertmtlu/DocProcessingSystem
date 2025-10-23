@@ -258,6 +258,7 @@ namespace DocProcessingSystem.Models
                 ReportEnum.GUVM,
                 ReportEnum.TSUM,
                 ReportEnum.IKLM,
+                ReportEnum.FOYG,
                 ReportEnum.FOYM,
                 ReportEnum.FOYA,
                 ReportEnum.ALTA,

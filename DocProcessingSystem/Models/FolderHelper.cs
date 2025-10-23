@@ -178,7 +178,7 @@ namespace DocProcessingSystem.Models
             string patternStandard = @"^(\d{1,2}-\d{2})\s*-?M(\d{2})(?:-(\d{2}|\d{1}))?(?:-([A-Za-z0-9]+))?$";
 
             // TEI pattern: TEI-B+digits-TM-digits-DIR-M+digits(-digits)
-            string patternTei = $@"TEI-B(\d{{2}})-TM-(\d{{2}})-{preferance}-M(\d{{2}})(?:-(\d{{2}}|\d{{1}}))?";
+            string patternTei = $@"TEI-B(\d{{2}})-TM-(\d{{2}})-{preferance}(\d{{2}})(?:-(\d{{2}}|\d{{1}}))?";
 
             // Try the standard pattern first
             Match match = Regex.Match(folderName, patternStandard);
