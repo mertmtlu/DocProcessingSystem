@@ -321,7 +321,7 @@ namespace DocProcessingSystem.Services
             {
                 MainDocument = mainPdf,
                 AdditionalDocuments = additionalPdfs,
-                OutputPath = Path.Combine(folderGroup.MainFolder, $"TEI-B{areaId}-TM-{tmId}-DIR-M{folderGroup.BuildingCode}-{folderGroup.BuildingTmId}.pdf"),
+                OutputPath = Path.Combine(folderGroup.MainFolder, "TBDYResults", $"TEI-B{areaId}-TM-{tmId}-DIR-M{folderGroup.BuildingCode}-{folderGroup.BuildingTmId}.pdf"),
                 Options = options
             };
         }
