@@ -231,7 +231,7 @@ namespace DocProcessingSystem.Services
             //CopyAdditionalFiles(folderGroup);
 
             //throw new NotImplementedException();
-            string mainPdf = Path.Combine(folderGroup.MainFolder, "main.pdf");
+            string mainPdf = Path.Combine(folderGroup.MainFolder, "TBDYResults", "main.pdf");
 
             // Get additional PDFs
             var additionalPdfs = new List<string>();
@@ -548,7 +548,7 @@ namespace DocProcessingSystem.Services
         protected override string GetOutputPath(FolderGroup group, string documentPath)
         {
             string mainFolder = group.MainFolder;
-            string mainPdfPath = Path.Combine(mainFolder, "main.pdf");
+            string mainPdfPath = Path.Combine(mainFolder, "TBDYResults", "main.pdf");
 
             return mainPdfPath;
         }
