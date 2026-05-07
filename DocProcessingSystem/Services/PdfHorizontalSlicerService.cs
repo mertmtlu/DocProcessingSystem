@@ -49,6 +49,10 @@ namespace DocProcessingSystem.Services
 
             Console.WriteLine($"Image: {imageWidth}×{imageHeight}px  |  Page: {pageWidthPt}×{pageHeightPt}pt");
 
+            // Ensure the cut list closes at the page edge
+            if (cuts[cuts.Count - 1] < pageWidthPt)
+                cuts = new List<float>(cuts) { pageWidthPt };
+
             // --- Decode full image to packed 1-bit scanlines via LibTiff ---
             Console.WriteLine("Decoding CCITT G4 image (this may take a moment)...");
             byte[] sourceTiff      = BuildCCITTG4TiffBytes(ccittData, imageWidth, imageHeight);
