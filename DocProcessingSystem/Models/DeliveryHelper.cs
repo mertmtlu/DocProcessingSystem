@@ -9,14 +9,134 @@ using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using iText.Kernel.Pdf;
+using iText.Kernel.Pdf.Canvas.Parser;
+using iText.Kernel.Pdf.Canvas.Parser.Listener;
 
 namespace DocProcessingSystem.Models
 {
     public static class DeliveryHelper
     {
+        public static void CheckRedFolderStructure(string root)
+        {
+            var subfolders = Directory.GetDirectories(root, "*", SearchOption.TopDirectoryOnly);
+
+            foreach (var subfolder in subfolders)
+            {
+                var folderName = Path.GetFileName(subfolder);
+
+                var areaID = folderName.Split('-')[0];
+                var tmID = folderName.Split("-")[1];
+
+                var pdfs = Directory.GetFiles(subfolder, "TEI*.pdf", SearchOption.TopDirectoryOnly);
+
+                foreach (var pdf in pdfs)
+                {
+                    var pdfFileName = Path.GetFileNameWithoutExtension(pdf);
+                    var fileStartPatternt = $"TEI-B{areaID}-TM-{tmID}-";
+
+                    if (!pdfFileName.StartsWith(fileStartPatternt))
+                    {
+                        Console.WriteLine($"Mismatch found in folder '{folderName}': PDF file '{pdfFileName}' does not start with '{fileStartPatternt}'");
+                    }
+                }
+            }
+        }
+
         public static List<string> GetReports(string root)
         {
             return Directory.GetFiles(root, "TEI*.pdf", SearchOption.AllDirectories).ToList();
+        }
+
+        public static void RearrangeRed(string root, string dest, string main)
+        {
+            var pdfs = Directory.GetFiles(root, "*.pdf", SearchOption.AllDirectories);
+
+            foreach (var pdf in pdfs)
+            {
+                (string tmNo, string buildingCode, string buildingTmId) = ExtractParts(Path.GetFileNameWithoutExtension(pdf), "RED-M");
+
+                var mainPdf = Path.Combine(main, tmNo, "main.pdf");
+
+                int mainPdfPages = GetPageCount(mainPdf) + 2;
+                int totalPages = GetPageCount(pdf);
+
+                var (startPageColoredFirstHalf, endPageColoredFirstHalf) = (1, mainPdfPages);
+                var (startPageColoredSecondHalf, endPageColoredSecondHalf) = (totalPages - mainPdfPages + 1, totalPages);
+
+                var (startPageBlackAndWhite, endPageBlackAndWhite) = (endPageColoredFirstHalf + 1, startPageColoredSecondHalf - 1);
+
+                var pdfExtractor = new PdfRangeExtractorService();
+                var destFolder = Path.Combine(dest, tmNo);
+                Directory.CreateDirectory(destFolder);
+                var tempFolder = Path.Combine(destFolder, "temp");
+                Directory.CreateDirectory(tempFolder);
+                var coloredFirstHalfPath = Path.Combine(tempFolder, "colored_first_half.pdf");
+                var coloredSecondHalfPath = Path.Combine(tempFolder, "colored_second_half.pdf");
+                var blackAndWhitePath = Path.Combine(destFolder, "black_and_white.pdf");
+
+
+                var coloredFirstHalfOptions = new PdfExtractionOptions
+                {
+                    StartPageSelectionType = PageSelectionType.SpecificPage,
+                    StartPageNumber = startPageColoredFirstHalf,
+                    EndPageSelectionType = PageSelectionType.SpecificPage,
+                    EndPageNumber = endPageColoredFirstHalf,
+                };
+
+                pdfExtractor.ExtractRange(pdf, coloredFirstHalfPath, coloredFirstHalfOptions);
+
+                var blackAndWhiteOptions = new PdfExtractionOptions
+                {
+                    StartPageSelectionType = PageSelectionType.SpecificPage,
+                    StartPageNumber = startPageBlackAndWhite,
+                    EndPageSelectionType = PageSelectionType.SpecificPage,
+                    EndPageNumber = endPageBlackAndWhite,
+                };
+
+                pdfExtractor.ExtractRange(pdf, blackAndWhitePath, blackAndWhiteOptions);
+
+                var coloredSecondHalfOptions = new PdfExtractionOptions
+                {
+                    StartPageSelectionType = PageSelectionType.SpecificPage,
+                    StartPageNumber = startPageColoredSecondHalf,
+                    EndPageSelectionType = PageSelectionType.SpecificPage,
+                    EndPageNumber = endPageColoredSecondHalf,
+                };
+
+                pdfExtractor.ExtractRange(pdf, coloredSecondHalfPath, coloredSecondHalfOptions);
+
+                PdfMergerService merger = new PdfMergerService();
+
+                var mergeOption = new MergeOptions
+                {
+                    PreserveBookmarks = true,
+                    CreateBookmarksForAdditionalPdf = false,
+                };
+
+                var coloredPath = Path.Combine(destFolder, "colored.pdf");
+
+                var firstMergeSequence = new MergeSequence
+                {
+                    MainDocument = coloredFirstHalfPath,
+                    AdditionalDocuments = new List<string> { coloredSecondHalfPath },
+                    OutputPath = coloredPath,
+                    Options = mergeOption
+                };
+
+                merger.MergePdf(firstMergeSequence);
+
+                Directory.Delete(tempFolder, true);
+            }
+        }
+
+        public static int GetPageCount(string pdfFile)
+        {
+            using (var reader = new PdfReader(pdfFile))
+            using (var sourceDoc = new PdfDocument(reader))
+            {
+                return sourceDoc.GetNumberOfPages();
+            }
         }
 
         public static (string tmNo, string buildingCode, string buildingTmId) ExtractParts(string folderName, string preferance)
@@ -77,14 +197,14 @@ namespace DocProcessingSystem.Models
             Dictionary<ReportEnum, string> endKeywordExcluded = new()
             {
                 //{ReportEnum.CIGM, "EK-A TESİS"},
-                //{ReportEnum.GUVM, "EK-A TESİS"},
+                {ReportEnum.GUVM, "EK-A TESİS"},
                 //{ReportEnum.HEYM, "EK-A TESİS"},
                 //{ReportEnum.SELM, "EK-A TESİS"},
                 //{ReportEnum.SESM, "EK-A TESİS"},
                 //{ReportEnum.YANM, "EK-A TESİS"},
                 //{ReportEnum.TSUM, "EK-A TESİS"},
 
-                {ReportEnum.SLTM, "EK-A" }
+                //{ReportEnum.SLTM, "EK-A" }
             };
 
             Dictionary<ReportEnum, string> endKeywordIncluded = new()
@@ -245,24 +365,25 @@ namespace DocProcessingSystem.Models
 
 
             List<ReportEnum> mergeOrder = new()
-            {
-                ReportEnum.DIRM,
-                ReportEnum.DGRM,
-                ReportEnum.FAYM,
-                ReportEnum.SLTM,
-                ReportEnum.SELM,
-                ReportEnum.CIGM,
-                ReportEnum.HEYM,
-                ReportEnum.YANM,
-                ReportEnum.SESM,
-                ReportEnum.GUVM,
-                ReportEnum.TSUM,
-                ReportEnum.IKLM,
-                ReportEnum.FOYG,
-                ReportEnum.FOYM,
-                ReportEnum.FOYA,
-                ReportEnum.ALTA,
-            };
+    {
+        ReportEnum.DIRM,
+        ReportEnum.DGRM,
+        ReportEnum.FAYM,
+        ReportEnum.SLTM,
+        ReportEnum.SELM,
+        ReportEnum.CIGM,
+        ReportEnum.HEYM,
+        ReportEnum.YANM,
+        ReportEnum.SESM,
+        ReportEnum.GUVM,
+        ReportEnum.TSUM,
+        ReportEnum.IKLM,
+        ReportEnum.ALTA,
+        ReportEnum.FOYG,
+        ReportEnum.FOYM,
+        ReportEnum.FOYA,
+    };
+
             using (var merger = new PdfMergerService())
             {
                 var mergeOption = new MergeOptions
@@ -288,10 +409,12 @@ namespace DocProcessingSystem.Models
                         }
                     }
 
-
                     var areaId = item.Identifier.Split('-')[0];
                     var centerId = item.Identifier.Split('-')[1];
                     var outputFileDest = Path.Combine(dest, $"TEI-B{areaId}-TM-{centerId}-RED-M00-00.pdf");
+
+                    // Create a temporary file path for the intermediate merge result
+                    var tempOutputFile = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid()}.pdf");
 
                     MakeEvenPage(mainFile, mergeOrderPaths);
 
@@ -299,17 +422,42 @@ namespace DocProcessingSystem.Models
                     {
                         MainDocument = mainFile,
                         AdditionalDocuments = mergeOrderPaths,
-                        OutputPath = outputFileDest, 
+                        OutputPath = tempOutputFile, // Merge to the temporary file first
                         Options = mergeOption
                     };
 
                     merger.MergePdf(firstOptionMergeSequence);
 
+                    MakeDividableByFour(tempOutputFile);
 
+                    var coverPagePath = Path.Combine(collection.RootDir, item.Identifier, "ön_kapak.pdf");
+                    var blankPagePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "CoverPages", "BlankPage.pdf");
+                    var additionalDocs = new List<string> { blankPagePath, tempOutputFile, @"C:\Users\Mert\Desktop\Risk Raporları ile ilgili her şey\Rapor Kapakları\RED_KAPAK_ARKA.pdf" };
+
+                    //MakeEvenPage(coverPagePath, additionalDocs);
+
+                    var coverPageMergeSequence = new MergeSequence
+                    {
+                        MainDocument = coverPagePath,
+                        AdditionalDocuments = additionalDocs,
+                        OutputPath = outputFileDest, // Final output path
+                        Options = new MergeOptions
+                        {
+                            PreserveBookmarks = true,
+                            CreateBookmarksForAdditionalPdf = false,
+                        }
+                    };
+
+                    merger.MergePdf(coverPageMergeSequence);
+
+                    // Clean up the temporary file
+                    if (File.Exists(tempOutputFile))
+                    {
+                        File.Delete(tempOutputFile);
+                    }
+                    //04-17
                 }
-
             }
-
         }
 
         public static void MakeEvenPage(string mainPdf, List<string> additionalPdfs)
@@ -324,7 +472,8 @@ namespace DocProcessingSystem.Models
 
                 var mergeOption = new MergeOptions
                 {
-                    PreserveBookmarks = true
+                    PreserveBookmarks = true,
+                    CreateBookmarksForAdditionalPdf = false,
                 };
 
                 if (mainPageCount % 2 != 0)
@@ -358,6 +507,39 @@ namespace DocProcessingSystem.Models
                     }
                 }
 
+            }
+        }
+
+        public static void MakeDividableByFour(string pdfFile)
+        {
+            string projectRootPath = AppDomain.CurrentDomain.BaseDirectory;
+            string blankPage = Path.Combine(projectRootPath, "CoverPages", "BlankPage.pdf");
+            using (var reader = new PdfReaderService())
+            using (var merger = new PdfMergerService())
+            {
+                var pageCount = reader.GetPageCount(pdfFile);
+                var mergeOption = new MergeOptions
+                {
+                    PreserveBookmarks = true,
+                    CreateBookmarksForAdditionalPdf = false,
+                };
+                int pagesToAdd = (4 - (pageCount % 4)) % 4;
+                List<string> additionalPages = new List<string>();
+                for (int i = 0; i < pagesToAdd; i++)
+                {
+                    additionalPages.Add(blankPage);
+                }
+                if (additionalPages.Count > 0)
+                {
+                    var MergeSequence = new MergeSequence
+                    {
+                        MainDocument = pdfFile,
+                        AdditionalDocuments = additionalPages,
+                        OutputPath = pdfFile,
+                        Options = mergeOption
+                    };
+                    merger.MergePdf(MergeSequence);
+                }
             }
         }
 

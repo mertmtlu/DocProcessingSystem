@@ -2,6 +2,12 @@
 using Microsoft.Office.Core;
 using Microsoft.Office.Interop.Word;
 using System.Runtime.InteropServices;
+using iText.Kernel.Pdf;
+using iText.Kernel.Geom;
+using iText.Kernel.Pdf.Canvas;
+using iText.Kernel.Pdf.Xobject;
+using IOPath = System.IO.Path;
+using PdfRectangle = iText.Kernel.Geom.Rectangle;
 
 namespace DocProcessingSystem.Services
 {
@@ -39,22 +45,24 @@ namespace DocProcessingSystem.Services
                 throw new FileNotFoundException($"Input file not found: {inputPath}");
 
             // Ensure the output directory exists
-            string outputDirectory = Path.GetDirectoryName(outputPath);
+            string outputDirectory = IOPath.GetDirectoryName(outputPath);
             Directory.CreateDirectory(outputDirectory);
 
             Document doc = null;
             try
             {
-                if (Path.GetFileName(inputPath).Contains("~$"))
+                if (IOPath.GetFileName(inputPath).Contains("~$"))
                 {
-                    Console.WriteLine($"Warning: Passed: {Path.GetFileName(inputPath)}");
+                    Console.WriteLine($"Warning: Passed: {IOPath.GetFileName(inputPath)}");
                     return;
                 }
 
-                //Console.WriteLine($"Converting {Path.GetFileName(inputPath)} to PDF");
+                //Console.WriteLine($"Converting {IOPath.GetFileName(inputPath)} to PDF");
                 doc = _wordApp.Documents.Open(inputPath);
+
                 // Remove background from all pages
                 RemoveBackgrounds(doc);
+
                 doc.ExportAsFixedFormat(
                     OutputFileName: outputPath,
                     ExportFormat: WdExportFormat.wdExportFormatPDF,
@@ -75,21 +83,21 @@ namespace DocProcessingSystem.Services
                 if (saveWordChanges) doc.Save();
 
                 // Copy the original file to the output location
-                string originalFileName = Path.GetFileName(inputPath);
-                string destinationPath = Path.Combine(outputDirectory, originalFileName);
+                string originalFileName = IOPath.GetFileName(inputPath);
+                string destinationPath = IOPath.Combine(outputDirectory, originalFileName);
 
                 // Don't copy if source and destination are the same
                 if (!string.Equals(inputPath, destinationPath, StringComparison.OrdinalIgnoreCase) && copyWord)
                 {
-                    File.Copy(inputPath, destinationPath.Replace(".docx", "_nt.docx"), true); // 'true' to overwrite if file exists
+                    File.Copy(inputPath, destinationPath.Replace(".docx", "_nt.docx"), true);
                     //Console.WriteLine($"Original file copied to: {destinationPath}");
                 }
 
-                //Console.WriteLine($"Successfully converted: {Path.GetFileName(inputPath)}");
+                //Console.WriteLine($"Successfully converted: {IOPath.GetFileName(inputPath)}");
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error converting {Path.GetFileName(inputPath)}: {ex.Message}");
+                Console.WriteLine($"Error converting {IOPath.GetFileName(inputPath)}: {ex.Message}");
                 throw;
             }
             finally
@@ -101,6 +109,71 @@ namespace DocProcessingSystem.Services
                 }
                 GC.Collect();
                 GC.WaitForPendingFinalizers();
+            }
+
+            // Scale the exported PDF to A4
+            if (outputPath.Contains("ön_kapak"))
+            {
+                ScalePdfToA4(outputPath);
+            }
+        }
+
+        /// <summary>
+        /// Scales a PDF to A4 size (stretch to fill)
+        /// </summary>
+        private void ScalePdfToA4(string pdfPath)
+        {
+            try
+            {
+                string tempPath = pdfPath + ".tmp";
+                using (PdfDocument sourcePdf = new PdfDocument(new PdfReader(pdfPath)))
+                using (PdfDocument destPdf = new PdfDocument(new PdfWriter(tempPath)))
+                {
+                    // A4 dimensions in points (210mm x 297mm)
+                    float a4Width = 595.276f;   // 595.276
+                    float a4Height = 841.89f; // 841.89
+                    PageSize a4 = new PageSize(a4Width, a4Height);
+                    Console.WriteLine($"Page Width: {a4Width}, Height: {a4Height}");
+
+                    for (int i = 1; i <= sourcePdf.GetNumberOfPages(); i++)
+                    {
+                        PdfPage sourcePage = sourcePdf.GetPage(i);
+                        float a5Width = 419.3158552381f;
+                        float a5Height = 594.9752f;
+                        PdfRectangle sourceRect = new(a5Width, a5Height);
+                        Console.WriteLine($"Rect Width: {sourceRect.GetWidth()}, Height: {sourceRect.GetHeight()}");
+
+                        // Create new page with explicit A4 dimensions
+                        PdfPage destPage = destPdf.AddNewPage(a4);
+
+                        // EXPLICITLY set the MediaBox to A4
+                        destPage.SetMediaBox(new PdfRectangle(0, 0, a4Width, a4Height));
+                        destPage.SetCropBox(new PdfRectangle(0, 0, a4Width, a4Height));
+
+                        // Calculate scale factors
+                        float scaleX = a4Width / sourceRect.GetWidth();
+                        float scaleY = a4Height / sourceRect.GetHeight();
+
+                        // Copy as XObject
+                        PdfFormXObject xObject = sourcePage.CopyAsFormXObject(destPdf);
+
+                        // Draw on A4 page with scaling
+                        var canvas = new PdfCanvas(destPage);
+                        canvas.SaveState();
+                        canvas.ConcatMatrix(scaleX, 0, 0, scaleY, 0, 0);
+                        canvas.AddXObjectAt(xObject, 0, 0);
+                        canvas.RestoreState();
+                    }
+                }
+
+                File.Delete(pdfPath);
+                File.Move(tempPath, pdfPath);
+
+                Console.WriteLine($"PDF converted to A4 format");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Warning: Could not scale PDF to A4: {ex.Message}");
             }
         }
 
@@ -180,35 +253,35 @@ namespace DocProcessingSystem.Services
         /// Disposes resources
         /// </summary>
         protected virtual void Dispose(bool disposing)
-    {
-        if (!_disposed)
         {
-            if (disposing)
+            if (!_disposed)
             {
-                // Unsubscribe from events
-                AppDomain.CurrentDomain.ProcessExit -= _processExitHandler;
-                AppDomain.CurrentDomain.UnhandledException -= _unhandledExceptionHandler;
-                
-                // Dispose Word application
-                if (_wordApp != null)
+                if (disposing)
                 {
-                    try
+                    // Unsubscribe from events
+                    AppDomain.CurrentDomain.ProcessExit -= _processExitHandler;
+                    AppDomain.CurrentDomain.UnhandledException -= _unhandledExceptionHandler;
+
+                    // Dispose Word application
+                    if (_wordApp != null)
                     {
-                        _wordApp.Quit(WdSaveOptions.wdDoNotSaveChanges);
-                        Marshal.ReleaseComObject(_wordApp);
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine($"Error disposing Word application: {ex.Message}");
-                    }
-                    finally
-                    {
-                        _wordApp = null;
+                        try
+                        {
+                            _wordApp.Quit(WdSaveOptions.wdDoNotSaveChanges);
+                            Marshal.ReleaseComObject(_wordApp);
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"Error disposing Word application: {ex.Message}");
+                        }
+                        finally
+                        {
+                            _wordApp = null;
+                        }
                     }
                 }
+                _disposed = true;
             }
-            _disposed = true;
         }
-    }
     }
 }

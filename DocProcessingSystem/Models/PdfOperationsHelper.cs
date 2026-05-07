@@ -13,11 +13,15 @@ namespace DocProcessingSystem.Models
     {
         #region Public Methods
 
-
+        // 04-28: image problem - Solved: Manually added images
+        // 12-28: ada parsel problem - Not important
+        // 19-06: ada parsel problem - Not important
+        // 18-13: ada parsel problem - Not important
+        // 20-03: ada parsel problem - Not important
         public static async Task ConvertWordToPdfAsync(string inputFolderPath, string outputFolderPath, bool saveChanges, bool useRelativePath = false, int maxParallel = 5)
         {
             // Get all Word files asynchronously
-            var wordFiles = await DirectoryExtensions.GetFilesAsync(inputFolderPath, "*.docx", SearchOption.AllDirectories);
+            var wordFiles = await DirectoryExtensions.GetFilesAsync(inputFolderPath, "ön_sırt_arka_kapak.docx", SearchOption.AllDirectories);
 
             // Create progress reporting
             var progress = new Progress<(string FileName, int Completed, int Total)>(update =>

@@ -160,7 +160,7 @@ namespace DocProcessingSystem.Models
                 }
             }
             // Try TEI pattern separately due to different group structure
-            string teiPattern = @"TEI-B(\d{2})-TM-(\d{2})-DIR-M(\d{2})(?:-(\d{2}|\d{1}))?";
+            string teiPattern = @"TEI-B(\d{2})-TM-(\d{2})-[A-Z]{3}-[A-Z]{1}(\d{2})(?:-(\d{2}|\d{1}))?";
             Match teiMatch = Regex.Match(folderName, teiPattern);
             if (teiMatch.Success)
             {
@@ -175,7 +175,7 @@ namespace DocProcessingSystem.Models
         public static (string tmNo, string buildingCode, string buildingTmId) ExtractParts(string folderName, string preferance)
         {
             // Standard pattern: digits-digits-M+digits(-digits)
-            string patternStandard = @"^(\d{1,2}-\d{2})\s*-?M(\d{2})(?:-(\d{2}|\d{1}))?(?:-([A-Za-z0-9]+))?$";
+            string patternStandard = @"^(\d{1,2}-\d{2})\s*_?M(\d{2})(?:_(\d{2}|\d{1}))?(?:_([A-Za-z0-9]+))?$";
 
             // TEI pattern: TEI-B+digits-TM-digits-DIR-M+digits(-digits)
             string patternTei = $@"TEI-B(\d{{2}})-TM-(\d{{2}})-{preferance}(\d{{2}})(?:-(\d{{2}}|\d{{1}}))?";

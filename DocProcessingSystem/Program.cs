@@ -27,13 +27,13 @@ namespace DocProcessingSystem
         /// </summary>
         static void Main(string[] args)
         {
-            Fırat.Run();
+            //Fırat.Run();
 
-            //var inputFolder = @"C:\Users\Mert\Desktop\ekstra 4 tm\raporlar";
-            //var outputFolder = @"C:\Users\Mert\Desktop\ekstra 4 tm\raporlar";
+            //var inputFolder = @"C:\Users\Mert\Desktop\RED DATA";
+            //var outputFolder = @"C:\Users\Mert\Desktop\RED DATA";
 
-            //PdfOperationsHelper.ConvertWordToPdfAsync(inputFolder, outputFolder, false, true).Wait();
-            //PdfOperationsHelper.ProcessPdfDocuments();
+            //PdfOperationsHelper.ConvertWordToPdfAsync(inputFolder, outputFolder, false, true, 14).Wait();
+
             //GetTotalPageCount(@"C:\Users\Mert\Desktop\REPORTS");
             //CreateEkA(@"C:\Users\Mert\Desktop\Anıl EK-A\TM Folders");
             //ProcessDocuments();
@@ -58,10 +58,15 @@ namespace DocProcessingSystem
             //CheckEkCMissingFiles();
 
             //GenerateDonatiReports();
-            //DeliveryHelper.GetEkParts(@"C:\users\Mert\Desktop\REPORTS", @"C:\Users\Mert\Desktop\REPORTSTM");
-            //DeliveryHelper.CreateRedReport(@"C:\Users\Mert\Desktop\ekstra 4 tm\raporlar", @"C:\Users\Mert\Desktop\ekstra 4 tm\RED raporları");
+            //DeliveryHelper.GetEkParts(@"C:\Users\Mert\Downloads\ITF-06-07_GUVENLIK\out", @"C:\Users\Mert\Desktop\temp2");
+            //DeliveryHelper.CreateRedReport(@"C:\Users\Mert\Desktop\part3", @"C:\Users\Mert\Desktop\part 3 out");
+            //DeliveryHelper.CheckRedFolderStructure(@"C:\Users\Mert\Desktop\part3");
+            //DeliveryHelper.RearrangeRed(
+            //    @"C:\Users\Mert\Desktop\RED ÖRNEK",
+            //    @"C:\Users\Mert\Desktop\seperated",
+            //    @"C:\Users\Mert\Desktop\examples"
+            //);
             //CountFiles(@"C:\Users\Mert\Desktop\Yeni klasör (2) - Kopya");
-            //RenameDocumentFiles();
             //CopyFoyReports();
 
             //ReArrangeCoverPages();
@@ -75,12 +80,688 @@ namespace DocProcessingSystem
             //MergePdfs();
             //CopyPdfs();
             //SaveMeFromRontgenWork(@"C:\Users\Mert\Desktop\SZL-3\SZL-3 SAHA");
+            //MergePdfForDwg();
+            //DeleteFirstTwoPageFor();
+
+            //GetDocumentTypes();
+            //CopyPictureFiles();
+            //Checher();
+            //GroupPdfs();
+            //GetPageNumbers();
+            //EndMyPain();
+            //CopyCoverPages();
+            //MergeCoverPages();
+            //Seperate();
+            //GroupingTime();
+            //GroupingTimeExcelTime();
+            //GetTpFiles();
+            Fırat.SlicePdfs();
+            //MergePhotos();
         }
 
         #endregion
 
         #region Document Processing Functions
+        static void MergePhotos()
+        {
+            string root = @"C:\Users\Mert\Desktop\Anılın işi";
 
+            var szl3Folder = Path.Combine(root, "SZL-3 2008 BA (AI, MM, SO)");
+            var uaFolder = Path.Combine(root, "UA");
+            var uaszl2Folder = Path.Combine(root, "UA_SZL2 SAHA");
+
+            var outputFolder = Path.Combine(root, "Merged Photos");
+
+            List<string> allPhotos= new List<string>();
+
+            if (!Directory.Exists(outputFolder))
+            {
+                Directory.CreateDirectory(outputFolder);
+            }
+
+            // Szl 3 section
+            var ltFolders = Directory.GetDirectories(szl3Folder, "LT", SearchOption.AllDirectories);
+            string[] fotoFolders = [];
+
+            foreach (var lt in ltFolders)
+            {
+                var foto = Directory.GetDirectories(lt, "FOTO", SearchOption.AllDirectories);
+                fotoFolders = fotoFolders.Concat(foto).ToArray();
+            }
+
+            foreach (var fotof in fotoFolders)
+            {
+                var allImageFiles = Directory.GetFiles(fotof, "*.*", SearchOption.AllDirectories)
+                    .Where(f => f.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase) || f.EndsWith(".png", StringComparison.OrdinalIgnoreCase) || f.EndsWith(".jpeg", StringComparison.OrdinalIgnoreCase));
+                allPhotos.AddRange(allImageFiles);
+            }
+
+            // UA section
+            var uaImages = Directory.GetFiles(uaFolder, "*.*", SearchOption.AllDirectories)
+                .Where(f => f.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase) || f.EndsWith(".png", StringComparison.OrdinalIgnoreCase) || f.EndsWith(".jpeg", StringComparison.OrdinalIgnoreCase));
+            allPhotos.AddRange(uaImages);
+
+            // UA SZL2 section
+            var uaszl2Images = Directory.GetFiles(uaszl2Folder, "*.*", SearchOption.AllDirectories)
+                .Where(f => f.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase) || f.EndsWith(".png", StringComparison.OrdinalIgnoreCase) || f.EndsWith(".jpeg", StringComparison.OrdinalIgnoreCase));
+            allPhotos.AddRange(uaszl2Images);
+
+            // grouping section
+
+            Dictionary<string, List<string>> groupedPhotos = new();
+
+            foreach (var photo in allPhotos)
+            {
+                var match = System.Text.RegularExpressions.Regex.Match(photo, @"\d{2}-\d{2}");
+                if (match.Success)
+                {
+                    var key = match.Value;
+                    if (!groupedPhotos.ContainsKey(key))
+                    {
+                        groupedPhotos[key] = new List<string>();
+                    }
+                    groupedPhotos[key].Add(photo);
+                }
+                else
+                {
+                    Console.WriteLine($"No match found for photo: {photo}");
+                }
+            }
+
+            // Copying section
+            foreach (var kvp in groupedPhotos)
+            {
+                var groupFolder = Path.Combine(outputFolder, kvp.Key);
+                if (!Directory.Exists(groupFolder))
+                {
+                    Directory.CreateDirectory(groupFolder);
+                }
+                foreach (var photo in kvp.Value)
+                {
+                    var destination = Path.Combine(groupFolder, Path.GetFileName(photo));
+                    if (File.Exists(destination))
+                    {
+                        Console.WriteLine($"File already exists at destination: {destination}. overriding it for {photo}");
+                    }
+                    File.Copy(photo, destination, true);
+                }
+
+                //Console.WriteLine($"Group: {kvp.Key}, Count: {kvp.Value.Count}");
+                //foreach (var photo in kvp.Value)
+                //{
+                //    Console.WriteLine($" - {photo}");
+                //}
+            }
+
+
+        }
+
+
+        static void GetTpFiles()
+        {
+            List<string> required = new()
+            {
+                "02-29-M01-01",
+                "02-30-M01-01",
+                "02-31-M01-01",
+                "02-32-M01-01",
+                "02-33-M01-01",
+                "02-34-M01-01",
+                "03-28-M01-01",
+                "03-29-M01-01",
+                "03-30-M01-01",
+                "03-32-M01-01",
+                "03-35-M01-01",
+                "03-36-M01-01",
+                "03-37-M01-01",
+                "04-15-M01-01",
+                "04-16-M01-01",
+                "04-17-M01-01",
+                "05-15-M01-01",
+                "05-22-M01-01",
+                "05-23-M01-01",
+                "05-24-M01-01",
+                "05-25-M01-01",
+                "05-27-M01-01",
+                "06-15-M01-01",
+                "06-17-M01-02",
+                "07-11-M01-01",
+                "07-12-M01-01",
+                "09-15-M01-01",
+                "10-16-M01-01",
+                "10-17-M01-01",
+                "10-18-M01-01",
+                "10-19-M01-01",
+                "11-05-M01-01",
+                "11-16-M01-01",
+                "12-01-M01-01",
+                "12-08-M01-01",
+                "12-27-M01-01",
+                "12-31-M01-01",
+                "12-34-M01-01",
+                "13-04-M01-01",
+                "13-05-M01-01",
+                "13-14-M01-01",
+                "13-15-M01-01",
+                "16-16-M01-01",
+                "16-17-M01-01",
+                "16-18-M01-01",
+                "17-09-M01-01",
+                "20-03-M01-01",
+                "20-15-M01-01",
+                "20-16-M01-01",
+                "20-17-M01-01",
+                "21-18-M01-01",
+            };
+
+            string root = @"D:\AI\SZL-3\SZL-3 HAKEDİŞ\HK_Teslim";
+            string dest = @"C:\Users\Mert\Desktop\TP files";
+
+            var txtFiles = Directory.GetFiles(root, "TBDYModelInputParameters.txt", SearchOption.AllDirectories);
+
+            Console.WriteLine("Found:");
+            foreach (var txt in txtFiles)
+            {
+                var upperFolderName = Directory.GetParent(txt)?.Name;
+
+                if (required.Contains(upperFolderName))
+                {
+                    Console.WriteLine(upperFolderName);
+                    required.Remove(upperFolderName);
+
+                    //string destPath = Path.Combine(dest, upperFolderName + ".txt");
+                    //File.Copy(txt, destPath, true);
+                }
+            }
+            Console.WriteLine();
+            Console.WriteLine("NOT FOUND");
+
+            foreach (var item in required)
+            {
+                Console.WriteLine(item);
+            }
+
+            Console.WriteLine();
+            Console.WriteLine("NOT found count: " + required.Count);
+        }
+
+        static void GroupingTimeExcelTime()
+        {
+            // Set EPPlus License context
+            ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
+
+            string root = @"C:\Users\Mert\Desktop\GROUPING TIME\SZL-2_TESLIM-PDF_GROUPPED";
+            string excelName = "Raporlar ve Rölöveler.xlsx";
+
+            var excelFileForShort = @"C:\Users\Mert\Desktop\SZL-2_TM_KISA_TR_ISIM_LISTE_20250319.xlsx";
+
+            var tmNameJson = ConvertExcelToDictionary(excelFileForShort);
+
+            if (!System.IO.Directory.Exists(root))
+            {
+                Console.WriteLine("Root directory not found.");
+                return;
+            }
+
+            string[] folders = System.IO.Directory.GetDirectories(root, "*", System.IO.SearchOption.TopDirectoryOnly);
+
+            foreach (var folder in folders)
+            {
+                string folderName = System.IO.Path.GetFileName(folder);
+                string excelSavePath = System.IO.Path.Combine(folder, excelName);
+                string[] files = System.IO.Directory.GetFiles(folder, "*.*", System.IO.SearchOption.AllDirectories);
+
+                Console.WriteLine("Processing folder: " + folderName);
+
+                System.IO.FileInfo excelFile = new System.IO.FileInfo(excelSavePath);
+
+                if (excelFile.Exists)
+                {
+                    try { excelFile.Delete(); } catch { }
+                }
+
+                using (ExcelPackage package = new ExcelPackage(excelFile))
+                {
+                    ExcelWorksheet worksheet = package.Workbook.Worksheets.Add("Raporlar");
+
+                    // Headers
+                    worksheet.Cells[1, 1].Value = "TM NO";
+                    worksheet.Cells[1, 2].Value = "TM Adı";
+                    worksheet.Cells[1, 3].Value = "Dosya Adı";
+                    worksheet.Cells[1, 4].Value = "Rapor Adı";
+
+                    // Basic Header Styling (Bold)
+                    worksheet.Cells[1, 1, 1, 4].Style.Font.Bold = true;
+
+                    int currentRow = 2;
+
+                    foreach (var file in files)
+                    {
+                        if (System.IO.Path.GetExtension(file).Equals(".xlsx", StringComparison.OrdinalIgnoreCase)) continue;
+
+                        string fileName = System.IO.Path.GetFileName(file);
+                        var (tmNo, buildingCode, buildingTmId) = FolderHelper.ExtractParts(fileName);
+                        var shortenedName = FindShortenedName(tmNo, tmNameJson)?.ToString();
+
+                        if (shortenedName == null) throw new ArgumentNullException("Shortened Name Not Found."); string reportName = ReportNameGenerator.GenerateReportName(fileName);
+
+                        if (!string.IsNullOrEmpty(reportName))
+                        {
+                            worksheet.Cells[currentRow, 1].Value = tmNo;
+                            worksheet.Cells[currentRow, 2].Value = shortenedName;
+                            worksheet.Cells[currentRow, 3].Value = fileName;
+                            worksheet.Cells[currentRow, 4].Value = reportName;
+                            currentRow++;
+                        }
+                        else
+                        {
+                            throw new Exception($"Report name could not be generated for file: {fileName} in folder: {folderName}");
+                        }
+                    }
+
+                    // Only apply styles if there is data (currentRow > 1 means we have at least headers)
+                    if (currentRow > 1)
+                    {
+                        // Select the entire range (Headers + Data)
+                        // currentRow is currently at the next empty line, so we subtract 1
+                        var fullRange = worksheet.Cells[1, 1, currentRow - 1, 4];
+
+                        // Add Borders
+                        fullRange.Style.Border.Top.Style = OfficeOpenXml.Style.ExcelBorderStyle.Thin;
+                        fullRange.Style.Border.Bottom.Style = OfficeOpenXml.Style.ExcelBorderStyle.Thin;
+                        fullRange.Style.Border.Left.Style = OfficeOpenXml.Style.ExcelBorderStyle.Thin;
+                        fullRange.Style.Border.Right.Style = OfficeOpenXml.Style.ExcelBorderStyle.Thin;
+
+                        // Center Align Text (Horizontal and Vertical)
+                        //fullRange.Style.HorizontalAlignment = OfficeOpenXml.Style.ExcelHorizontalAlignment.Center;
+                        //fullRange.Style.VerticalAlignment = OfficeOpenXml.Style.ExcelVerticalAlignment.Center;
+                    }
+                    // --- STYLING SECTION END ---
+
+                    // AutoFit columns
+                    worksheet.Column(1).AutoFit();
+                    worksheet.Column(2).AutoFit();
+                    worksheet.Column(3).AutoFit();
+                    worksheet.Column(4).AutoFit();
+
+                    package.Save();
+                }
+            }
+        }
+        static void GroupingTime()
+        {
+            string root = @"C:\Users\Mert\Desktop\GROUPING TIME\SZL-2_TESLIM-PDF";
+            string dest = @"C:\Users\Mert\Desktop\GROUPING TIME\SZL-2_TESLIM-PDF_GROUPPED";
+
+            var pdfs = Directory.GetFiles(root, "*", SearchOption.AllDirectories);
+
+            foreach (var pdf in pdfs)
+            {
+                var folderPath = Path.GetDirectoryName(pdf);
+
+                var grouppedFolderName = Path.GetFileNameWithoutExtension(pdf) switch
+                {
+                    var f when f.Contains("TEI-B01") => "B01",
+                    var f when f.Contains("TEI-B04") => "B04",
+                    var f when f.Contains("TEI-B05") => "B05",
+                    var f when f.Contains("TEI-B12") => "B12",
+                    var f when f.Contains("TEI-B13") => "B13",
+                    var f when f.Contains("TEI-B18") => "B18",
+                    var f when f.Contains("TEI-B20") => "B20",
+                    _ => throw new Exception("Not implemented")
+                };
+
+                var relativePath = Path.GetRelativePath(root, folderPath);
+                var targetDirectory = Path.Combine(dest, grouppedFolderName, relativePath);
+                var destination = Path.Combine(targetDirectory, Path.GetFileName(pdf));
+
+                if (!Directory.Exists(destination)) Directory.CreateDirectory(Path.GetDirectoryName(destination));
+                
+                if (File.Exists(destination)) throw new Exception("File exists");
+
+                File.Copy(pdf, destination, true);
+
+            }
+        }
+        static void Seperate()
+        {
+            var root = @"C:\Users\Mert\Downloads\1.08_Foy_nihai_teslim (4)";
+            var dest = @"C:\Users\Mert\Downloads\1.08_Foy_nihai_teslim (4)-s";
+
+            var pdfs = Directory.GetFiles(root, "*.pdf", SearchOption.AllDirectories);
+
+            foreach ( var p in pdfs )
+            {
+                if (Path.GetFileNameWithoutExtension(p).Contains("M00-00"))
+                {
+                    var destination = Path.Combine(dest, "Mevcut", Path.GetFileName(p));
+                    Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+                    File.Copy(p, destination, true);
+                }
+                else
+                {
+                    var destination = Path.Combine(dest, "Alternatif", Path.GetFileName(p));
+                    Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+                    File.Copy(p, destination, true);
+                }
+            }
+        }
+        static void MergeCoverPages()
+        {
+            string root = @"C:\Users\Mert\Desktop\asd\RED_KAPAK-EKIBE-21_ADET";
+
+            var coverpages = Directory.GetFiles(root, "*.pdf", SearchOption.AllDirectories);
+            var firstCoverPage = coverpages.FirstOrDefault();
+            var remainingCoverPages = coverpages.Where(f => f != firstCoverPage).ToList();
+
+            using (var merger = new PdfMergerService())
+            {
+                var mergeOption = new MergeOptions
+                {
+                    PreserveBookmarks = false
+                };
+
+                var mergeSequence = new MergeSequence
+                {
+                    MainDocument = firstCoverPage,
+                    AdditionalDocuments = remainingCoverPages,
+                    OutputPath = Path.Combine(@"C:\Users\Mert\Desktop\asd", "merged_coverpages.pdf"),
+                    Options = mergeOption
+                };
+                merger.MergePdf(mergeSequence);
+            }
+
+        }
+        static void CopyCoverPages()
+        {
+            var coverpages = Directory.GetFiles(@"C:\Users\Mert\Desktop\RED DATA", "ön_sırt_arka_kapak.pdf", SearchOption.AllDirectories);
+            
+            foreach (var coverpage in coverpages)
+            {
+                var folderName = Path.GetFileName(Path.GetDirectoryName(coverpage));
+
+                var areaCode= folderName.Split("-")[0];
+                var tmCode = folderName.Split("-")[1];
+
+                var newFileName = $"TEI-B{areaCode}-TM-{tmCode}-RED-M00-00_Kapak.pdf";
+                var destination = Path.Combine(@"C:\Users\Mert\Desktop\Red Kapak", newFileName);
+
+                File.Copy(coverpage, destination);
+            }
+        }
+        static void EndMyPain()
+        {
+            var root = @"C:\Users\Mert\Desktop\RED DATA";
+
+            var pdfs = Directory.GetFiles(root, "*.docx.pdf", SearchOption.AllDirectories);
+
+            foreach (var pdf in pdfs)
+            {
+                Console.WriteLine($"Renaming: {pdf}");
+                var destination = pdf.Replace(".docx.pdf", ".pdf");
+                File.Move(pdf, destination);
+            }
+        }
+        static void GetDocumentTypes()
+        {
+            var files = Directory.GetFiles(@"C:\Users\Mert\Desktop\RED DATA", "TEI*.pdf", SearchOption.AllDirectories)
+                .Where(f => !f.Contains("-FOY-")).ToList();
+            List<string> types = new();
+
+            //foreach (var file in files)
+            //{
+            //    var extension = Path.GetExtension(file);
+            //    if (!types.Contains(extension))
+            //    {
+            //        types.Add(extension);
+            //        Console.WriteLine(extension);
+            //    }
+            //}
+        }
+        static void CopyPictureFiles()
+        {
+            var root = @"C:\Users\Mert\Desktop\red new";
+            var dest = @"C:\Users\Mert\Desktop\all pictures";
+
+            var jpg = Directory.GetFiles(root, "*.jpg", SearchOption.AllDirectories);
+            var png = Directory.GetFiles(root, "*.png", SearchOption.AllDirectories);
+            var JPG = Directory.GetFiles(root, "*.JPG", SearchOption.AllDirectories);
+
+            var allPictures = jpg.Concat(png).Concat(JPG);
+
+            foreach (var pic in allPictures)
+            {
+                var destination = pic.Replace(root, dest);
+            
+                if (!Directory.Exists(Path.GetDirectoryName(destination)!))
+                {
+                    Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+                }
+
+                File.Copy(pic, destination, true);
+            }
+        }
+        static void Checher()
+        {
+            var docx = Directory.GetFiles(@"C:\Users\Mert\Desktop\RED DATA", "*.docx", SearchOption.AllDirectories)
+                .Where(f=> !f.Contains("main")).ToList();
+            foreach (var doc in docx)
+            {
+                File.Delete(doc);
+            }
+        }
+        static void GetPageNumbers()
+        {
+            string root = @"C:\Users\Mert\Desktop\RED Raportları";
+            var pdfs = Directory.GetFiles(root, "TEI-*.pdf", SearchOption.AllDirectories);
+
+            // Set the license context for EPPlus
+            ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
+
+            // Define the path for the new Excel file
+            string excelFilePath = Path.Combine(root, "PdfPageCounts.xlsx");
+
+            // Create a new Excel package
+            using (var package = new ExcelPackage(new FileInfo(excelFilePath)))
+            {
+                // Add a new worksheet to the workbook
+                var worksheet = package.Workbook.Worksheets.Add("PDF Page Counts");
+
+                // Add headers to the worksheet
+                worksheet.Cells[1, 1].Value = "PDF Name";
+                worksheet.Cells[1, 2].Value = "Page Count";
+                worksheet.Cells[1, 3].Value = "TM No";
+
+                // Start writing data from the second row
+                int row = 2;
+
+                foreach (var pdf in pdfs)
+                {
+                    var pdfName = Path.GetFileNameWithoutExtension(pdf)/*.Split("_NT").FirstOrDefault()*/;
+                    var folderName = Path.GetFileName(Path.GetDirectoryName(pdf));
+                    var pageCount = DeliveryHelper.GetPageCount(pdf); // Assuming DeliveryHelper.GetPageCount is a method you have
+                    var tmNo = pdfName.Replace("TEI-B", "").Replace("-TM-", "-").Replace("-RED-M00-00", "");
+
+                    // Write the data to the Excel worksheet
+                    worksheet.Cells[row, 1].Value = $"{pdfName}";/*{folderName} - */
+                    worksheet.Cells[row, 2].Value = pageCount;
+                    worksheet.Cells[row, 3].Value = $"{Constants.TmNoToName[tmNo]} TM";
+
+                    row++;
+                }
+
+                // Auto-fit the columns for better readability
+                worksheet.Cells[worksheet.Dimension.Address].AutoFitColumns();
+
+                // Save the Excel file
+                package.Save();
+            }
+
+            Console.WriteLine($"Successfully created Excel file at: {excelFilePath}");
+        }
+        static void DeleteFirstTwoPageFor()
+        {
+            string root = @"C:\Users\Mert\Desktop\Risk Raporları ile ilgili her şey\Değiştirilenler\GUV TM GROUPED";
+            string dest = @"C:\Users\Mert\Desktop\Risk Raporları ile ilgili her şey\Değiştirilenler\asd";
+
+            var pdfs = Directory.GetFiles(root, "TEI*.pdf", SearchOption.AllDirectories).ToList();
+
+            foreach (var pdf in pdfs)
+            {
+                if (pdf.Contains("-FOY-"))
+                {
+                    File.Copy(pdf, pdf.Replace(root, dest), true);
+                    continue;
+                }
+
+                var destination = pdf.Replace(root, dest);
+                Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+
+                var service = new PdfRangeExtractorService();
+
+                var options = new PdfExtractionOptions
+                {
+                    StartPageSelectionType = PageSelectionType.SpecificPage,
+                    StartPageNumber = 3,
+                    EndPageSelectionType = PageSelectionType.LastPage
+                };
+
+                service.ExtractRange(pdf, destination, options);
+            }
+        }
+        static void GroupPdfs()
+        {
+            string root = @"C:\Users\Mert\Downloads\1.08_Foy_nihai_teslim (3)\1.08_Foy_nihai_teslim";
+            string dest = @"C:\Users\Mert\Desktop\RED DATA";
+
+            var pdfs = Directory.GetFiles(root, "*.pdf", SearchOption.AllDirectories)
+                .Where(f => f.Contains("-FOY-"));
+
+            foreach (var pdf in pdfs)
+            {
+                var (tmNo, buildingCode, buildingTmId) = FolderHelper.ExtractParts(pdf);
+
+                var folderName = $"{tmNo}";
+                var folderPath = Path.Combine(dest, folderName);
+                if (!Directory.Exists(folderPath))
+                {
+                    Directory.CreateDirectory(folderPath);
+                }
+                var destination = Path.Combine(folderPath, Path.GetFileName(pdf));
+                File.Copy(pdf, destination, true);
+            }
+
+        }
+        static void GroupJpgs()
+        {
+            string root = @"C:\Users\Mert\Desktop\Risk Raporları ile ilgili her şey\RED DATA UNSIGNED";
+            string dest = @"C:\Users\Mert\Desktop\red new";
+
+            var jpgs = Directory.GetFiles(root, "*.jpg", SearchOption.AllDirectories);
+
+            foreach (var jpg in jpgs)
+            {
+                var destination = jpg.Replace(root, dest);
+                File.Copy(jpg, destination, true);
+            }
+
+        }
+        static void MergePdfForDwg()
+        {
+            string root = @"C:\Users\Mert\Desktop\dwg";
+            string dest = @"C:\Users\Mert\Desktop\output";
+
+            var areaFolders = Directory.GetDirectories(root, "*", SearchOption.TopDirectoryOnly);
+
+            foreach (var areaFolder in areaFolders)
+            {
+                var buildingFolders = Directory.GetDirectories(areaFolder, "*", SearchOption.TopDirectoryOnly);
+
+                foreach (var buildingFolder in buildingFolders)
+                {
+                    var folderName = Path.GetFileName(buildingFolder);
+
+                    var (tmNoFolder, buildingCodeFolder, buildingTmIDFolder) = FolderHelper.ExtractParts(folderName, "SRL-M");
+
+                    var pdfs = Directory.GetFiles(buildingFolder, "*.pdf", SearchOption.TopDirectoryOnly);
+
+                    var main = pdfs[0];
+                    var outputPath = Path.Combine(dest, Path.GetFileNameWithoutExtension(main).Split("-Model")[0] + ".pdf");
+
+                    if (pdfs.Length == 1)
+                    {
+                        File.Copy(main, outputPath, true);
+                        continue;
+                    }
+
+                    foreach (var pdf in pdfs)
+                    {
+                        var filename = Path.GetFileName(buildingFolder);
+                        var (tmNoFolderPdf, buildingCodeFolderPdf, buildingTmIDFolderPdf) = FolderHelper.ExtractParts(folderName, "SRL-M");
+
+                        if (tmNoFolder != tmNoFolderPdf || buildingCodeFolder != buildingCodeFolderPdf || buildingTmIDFolder != buildingTmIDFolderPdf)
+                        {
+                            Console.WriteLine($"Mismatch in folder parts for {pdf}");
+                            continue;
+                        }
+                    }
+
+
+                    using (var merger = new PdfMergerService())
+                    {
+                        var mergeOption = new MergeOptions
+                        {
+                            PreserveBookmarks = false
+                        };
+                        
+
+                        MergeSequence mergeSequence = new()
+                        {
+                            MainDocument = main,
+                            AdditionalDocuments = pdfs.Where(p => p != main).OrderBy(p => p).ToList(),
+                            OutputPath = outputPath,
+                            Options = mergeOption
+                        };
+
+                        merger.MergePdf(mergeSequence);
+                    }
+                    //throw new Exception();
+                }
+            }
+        }
+        static void CreatePdfFolders()
+        {
+            string root = @"C:\Users\Mert\Desktop\B4-13-20";
+            string dest = @"C:\Users\Mert\Desktop\dwg";
+
+            var dwgFiles = Directory.GetFiles(root, "*.dwg", SearchOption.AllDirectories);
+
+            foreach (var dwg in dwgFiles)
+            {
+                var fileName = Path.GetFileName(dwg);
+
+                var (tmNo, buildingCode, buildingTmID) = FolderHelper.ExtractParts(fileName, "SRL-M");
+
+                if (tmNo == null || buildingCode == null || buildingTmID == null)
+                {
+                    Console.WriteLine($"Could not extract parts from: {dwg}");
+                    continue;
+                }
+
+                var folderName = $"{tmNo}_M{buildingCode}_{buildingTmID}";
+                var folderPath = Path.Combine(dest, folderName);
+
+                if (!Directory.Exists(folderPath))
+                {
+                    Directory.CreateDirectory(folderPath);
+                }
+                else
+                {
+                    Console.WriteLine($"Folder already exists: {folderPath}");
+                }
+
+            }
+        }
         static string FindKeyValue(string key, Dictionary<string, string> dict)
         {
             var searchTerm = key
@@ -201,7 +882,7 @@ namespace DocProcessingSystem
 
                             foreach (var building in buildings)
                             {
-                                var checker = Directory.GetFiles(building,"*", SearchOption.AllDirectories).Length > 0;
+                                var checker = Directory.GetFiles(building, "*", SearchOption.AllDirectories).Length > 0;
 
                                 var folderName = $"{Path.GetFileName(ltSubfolder).Substring(0, 5)}: {Path.GetFileName(building)}";
 
@@ -1248,10 +1929,10 @@ namespace DocProcessingSystem
         static void ProcessDocuments()
         {
             // Get folder paths from arguments or use defaults
-            string parametricsFolder = @"C:\Users\Mert\Desktop\ANIL_REVISE 27.05.2025\words\Parametricasdasd";
+            string parametricsFolder = @"C:\Users\Mert\Desktop\anıl\word";
             string deterministicsFolder = @"C:\Users\Mert\Desktop\ANIL_REVISE 27.05.2025\words\Deterministic";
             string post2008 = @"C:\Users\Mert\Desktop\Fırat Report Revision\MM_RAPOR\WORDasdasdasd"; // TODO: FIRAT
-            string analysisFolder = @"C:\Users\Mert\Desktop\ANIL_REVISE 27.05.2025\Analysis"; // TODO: FIRAT
+            string analysisFolder = @"C:\Users\Mert\Desktop\anıl\analysis"; // TODO: FIRAT
 
             using (var converter = new WordToPdfConverter())
             using (var merger = new PdfMergerService())
@@ -1787,14 +2468,14 @@ namespace DocProcessingSystem
         }
         static void RenameDocumentFiles()
         {
-            var inputFolder = @"C:\Users\Mert\Desktop\hk20";
+            var inputFolder = @"C:\Users\Mert\Desktop\Karara göre ayrılmış";
             var excelFile = @"C:\Users\Mert\Desktop\SZL-2_TM_KISA_TR_ISIM_LISTE_20250319.xlsx";
 
             var tmNameJson = ConvertExcelToDictionary(excelFile);
 
             // Get both Word and PDF documents
             //var wordDocuments = Directory.GetFiles(inputFolder, "*.docx", SearchOption.AllDirectories);
-            var allDocuments = Directory.GetFiles(inputFolder, "TEI*.pdf", SearchOption.AllDirectories);
+            var allDocuments = Directory.GetFiles(inputFolder, "TEI*-RED-*.*", SearchOption.AllDirectories);
             //var allDocuments = wordDocuments.Concat(pdfDocuments).ToArray();
 
             foreach (var document in allDocuments)
@@ -1812,7 +2493,7 @@ namespace DocProcessingSystem
 
                         try
                         {
-                            var (tmNo, buildingCode, buildingTmId) = FolderHelper.ExtractParts(document, "FOY");
+                            var (tmNo, buildingCode, buildingTmId) = FolderHelper.ExtractParts(document, "FOY-A");
 
                             // Get the shortened name for this TM number
                             var shortenedName = FindShortenedName(tmNo, tmNameJson)?.ToString();
@@ -1866,7 +2547,7 @@ namespace DocProcessingSystem
                         {
                             try
                             {
-                                var (tmNo, buildingCode, buildingTmId) = FolderHelper.ExtractParts(document, preference);
+                                var (tmNo, buildingCode, buildingTmId) = FolderHelper.ExtractParts(document, preference+"-M");
 
                                 // Get the shortened name for this TM number
                                 var shortenedName = FindShortenedName(tmNo, tmNameJson)?.ToString();
@@ -2027,8 +2708,8 @@ namespace DocProcessingSystem
         }
         static void CopyUpperDirectory()
         {
-            var root = @"C:\Users\Mert\Desktop\KK\PUSHOVER";
-            var allDocuments = Directory.GetFiles(root, "TEI*.pdf", SearchOption.AllDirectories);
+            var root = @"C:\Users\Mert\Desktop\GROUPING TIME\SZL-2_TESLIM-PDF\ITF-12_BINA_ROLOVELERI\DWG";
+            var allDocuments = Directory.GetFiles(root, "*", SearchOption.AllDirectories);
 
             foreach (var file in allDocuments)
             {
