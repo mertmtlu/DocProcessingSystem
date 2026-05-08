@@ -16,6 +16,7 @@ namespace DocProcessingSystem.Services
 
         public static void SlicePdfs()
         {
+            var ekACoverPage = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "CoverPages", "Parametric", "OneBlock", "EK-A_Kapak.pdf");
             var inputFolder = Path.Combine(FIRAT_FOLDER, "input");
             var outputFolder = Path.Combine(FIRAT_FOLDER, "output");
             var excelPath = Path.Combine(FIRAT_FOLDER, "data.xlsx");
@@ -25,6 +26,7 @@ namespace DocProcessingSystem.Services
             var sheet = package.Workbook.Worksheets[0];
 
             var slicer = new PdfHorizontalSlicerService();
+            using var merger = new PdfMergerService();
 
             for (int row = 2; row <= sheet.Dimension.End.Row; row++)
             {
@@ -45,10 +47,26 @@ namespace DocProcessingSystem.Services
 
                 var outputName = Path.GetFileNameWithoutExtension(pdfName) + "_sliced.pdf";
                 var outputPath = Path.Combine(outputFolder, outputName);
+                var tempSlicedPath = Path.Combine(Path.GetTempPath(), $"temp_sliced_{Guid.NewGuid()}.pdf");
 
-                Console.WriteLine($"Slicing '{pdfName}' into {cuts.Count - 1} pages...");
-                slicer.Slice(inputPath, outputPath, cuts);
-                Console.WriteLine($"  -> Saved to '{outputPath}'");
+                try
+                {
+                    Console.WriteLine($"Slicing '{pdfName}' into {cuts.Count - 1} pages...");
+                    slicer.Slice(inputPath, tempSlicedPath, cuts);
+
+                    merger.MergePdf(ekACoverPage, [tempSlicedPath], outputPath, new Core.MergeOptions
+                    {
+                        PreserveBookmarks = false,
+                        CreateBookmarksForAdditionalPdf = false,
+                    });
+
+                    Console.WriteLine($"  -> Saved to '{outputPath}'");
+                }
+                finally
+                {
+                    if (File.Exists(tempSlicedPath))
+                        File.Delete(tempSlicedPath);
+                }
             }
         }
 
