@@ -27,7 +27,8 @@ namespace DocProcessingSystem
         /// </summary>
         static void Main(string[] args)
         {
-            //Fırat.Run();
+            Fırat.Run();
+            //Fırat.SlicePdfs();
 
             //var inputFolder = @"C:\Users\Mert\Desktop\RED DATA";
             //var outputFolder = @"C:\Users\Mert\Desktop\RED DATA";
@@ -95,7 +96,6 @@ namespace DocProcessingSystem
             //GroupingTime();
             //GroupingTimeExcelTime();
             //GetTpFiles();
-            Fırat.SlicePdfs();
             //MergePhotos();
         }
 

@@ -22,18 +22,49 @@ namespace DocProcessingSystem.Services
         private EventHandler _processExitHandler;
         private UnhandledExceptionEventHandler _unhandledExceptionHandler;
 
+        private const int RPC_E_DISCONNECTED = unchecked((int)0x80010108);
+
         public WordToPdfConverter()
         {
-            _wordApp = new Application();
-            _wordApp.Visible = false;
-            _wordApp.DisplayAlerts = WdAlertLevel.wdAlertsNone;
-            _wordApp.Options.PrintDraft = false;
+            _wordApp = CreateWordApp();
 
             _processExitHandler = (object? sender, EventArgs e) => Dispose();
             _unhandledExceptionHandler = (object sender, UnhandledExceptionEventArgs e) => Dispose();
 
             AppDomain.CurrentDomain.ProcessExit += _processExitHandler;
             AppDomain.CurrentDomain.UnhandledException += _unhandledExceptionHandler;
+        }
+
+        private static Application CreateWordApp()
+        {
+            var app = new Application();
+            app.Visible = false;
+            app.DisplayAlerts = WdAlertLevel.wdAlertsNone;
+            app.Options.PrintDraft = false;
+            return app;
+        }
+
+        private void RestartWordApp()
+        {
+            try
+            {
+                if (_wordApp != null)
+                {
+                    try { _wordApp.Quit(WdSaveOptions.wdDoNotSaveChanges); } catch { }
+                    Marshal.FinalReleaseComObject(_wordApp);
+                    _wordApp = null;
+                }
+            }
+            catch { }
+
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+            // Give Word process time to fully shut down before starting a new instance
+            System.Threading.Thread.Sleep(1000);
+
+            _wordApp = CreateWordApp();
         }
 
         /// <summary>
@@ -44,78 +75,77 @@ namespace DocProcessingSystem.Services
             if (!File.Exists(inputPath))
                 throw new FileNotFoundException($"Input file not found: {inputPath}");
 
-            // Ensure the output directory exists
             string outputDirectory = IOPath.GetDirectoryName(outputPath);
             Directory.CreateDirectory(outputDirectory);
 
-            Document doc = null;
-            try
+            if (IOPath.GetFileName(inputPath).Contains("~$"))
             {
-                if (IOPath.GetFileName(inputPath).Contains("~$"))
-                {
-                    Console.WriteLine($"Warning: Passed: {IOPath.GetFileName(inputPath)}");
-                    return;
-                }
-
-                //Console.WriteLine($"Converting {IOPath.GetFileName(inputPath)} to PDF");
-                doc = _wordApp.Documents.Open(inputPath);
-
-                // Remove background from all pages
-                RemoveBackgrounds(doc);
-
-                doc.ExportAsFixedFormat(
-                    OutputFileName: outputPath,
-                    ExportFormat: WdExportFormat.wdExportFormatPDF,
-                    OpenAfterExport: false,
-                    OptimizeFor: WdExportOptimizeFor.wdExportOptimizeForPrint,
-                    Range: WdExportRange.wdExportAllDocument,
-                    From: 0,
-                    To: 0,
-                    Item: WdExportItem.wdExportDocumentContent,
-                    IncludeDocProps: true,
-                    KeepIRM: true,
-                    CreateBookmarks: WdExportCreateBookmarks.wdExportCreateHeadingBookmarks,
-                    DocStructureTags: true,
-                    BitmapMissingFonts: true,
-                    UseISO19005_1: false
-                );
-
-                if (saveWordChanges) doc.Save();
-
-                // Copy the original file to the output location
-                string originalFileName = IOPath.GetFileName(inputPath);
-                string destinationPath = IOPath.Combine(outputDirectory, originalFileName);
-
-                // Don't copy if source and destination are the same
-                if (!string.Equals(inputPath, destinationPath, StringComparison.OrdinalIgnoreCase) && copyWord)
-                {
-                    File.Copy(inputPath, destinationPath.Replace(".docx", "_nt.docx"), true);
-                    //Console.WriteLine($"Original file copied to: {destinationPath}");
-                }
-
-                //Console.WriteLine($"Successfully converted: {IOPath.GetFileName(inputPath)}");
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error converting {IOPath.GetFileName(inputPath)}: {ex.Message}");
-                throw;
-            }
-            finally
-            {
-                if (doc != null)
-                {
-                    doc.Close(WdSaveOptions.wdDoNotSaveChanges);
-                    Marshal.ReleaseComObject(doc);
-                }
-                GC.Collect();
-                GC.WaitForPendingFinalizers();
+                Console.WriteLine($"Warning: Passed: {IOPath.GetFileName(inputPath)}");
+                return;
             }
 
-            // Scale the exported PDF to A4
+            const int maxRetries = 1;
+            for (int attempt = 0; attempt <= maxRetries; attempt++)
+            {
+                Document doc = null;
+                try
+                {
+                    doc = _wordApp.Documents.Open(inputPath);
+                    RemoveBackgrounds(doc);
+
+                    doc.ExportAsFixedFormat(
+                        OutputFileName: outputPath,
+                        ExportFormat: WdExportFormat.wdExportFormatPDF,
+                        OpenAfterExport: false,
+                        OptimizeFor: WdExportOptimizeFor.wdExportOptimizeForPrint,
+                        Range: WdExportRange.wdExportAllDocument,
+                        From: 0,
+                        To: 0,
+                        Item: WdExportItem.wdExportDocumentContent,
+                        IncludeDocProps: true,
+                        KeepIRM: true,
+                        CreateBookmarks: WdExportCreateBookmarks.wdExportCreateHeadingBookmarks,
+                        DocStructureTags: true,
+                        BitmapMissingFonts: true,
+                        UseISO19005_1: false
+                    );
+
+                    if (saveWordChanges) doc.Save();
+
+                    string originalFileName = IOPath.GetFileName(inputPath);
+                    string destinationPath = IOPath.Combine(outputDirectory, originalFileName);
+                    if (!string.Equals(inputPath, destinationPath, StringComparison.OrdinalIgnoreCase) && copyWord)
+                        File.Copy(inputPath, destinationPath.Replace(".docx", "_nt.docx"), true);
+
+                    break; // success
+                }
+                catch (COMException comEx) when (comEx.HResult == RPC_E_DISCONNECTED && attempt < maxRetries)
+                {
+                    Console.WriteLine($"Word disconnected while processing {IOPath.GetFileName(inputPath)}, restarting Word and retrying...");
+                    RestartWordApp();
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error converting {IOPath.GetFileName(inputPath)}: {ex.Message}");
+                    throw;
+                }
+                finally
+                {
+                    if (doc != null)
+                    {
+                        try { doc.Close(WdSaveOptions.wdDoNotSaveChanges); } catch { }
+                        Marshal.FinalReleaseComObject(doc);
+                        doc = null;
+                    }
+                    GC.Collect();
+                    GC.WaitForPendingFinalizers();
+                    GC.Collect();
+                    GC.WaitForPendingFinalizers();
+                }
+            }
+
             if (outputPath.Contains("ön_kapak"))
-            {
                 ScalePdfToA4(outputPath);
-            }
         }
 
         /// <summary>
@@ -178,61 +208,112 @@ namespace DocProcessingSystem.Services
         }
 
         /// <summary>
-        /// Removes backgrounds and highlighting from Word document
+        /// Removes backgrounds and highlighting from Word document.
+        /// Every COM object created here is explicitly released to avoid accumulation
+        /// across many conversions, which causes RPC_E_DISCONNECTED on some Word versions.
         /// </summary>
         public void RemoveBackgrounds(Document doc)
         {
             try
             {
-                // Remove highlights from all text
-                foreach (Microsoft.Office.Interop.Word.Range range in doc.StoryRanges)
+                var storyRanges = doc.StoryRanges;
+                try
                 {
-                    try
+                    foreach (Microsoft.Office.Interop.Word.Range range in storyRanges)
                     {
-                        range.HighlightColorIndex = WdColorIndex.wdNoHighlight;
-                    }
-                    catch { } // Skip if range can't be modified
+                        try { range.HighlightColorIndex = WdColorIndex.wdNoHighlight; } catch { }
 
-                    // If there are tables, remove highlighting from table cells
-                    foreach (Table table in range.Tables)
-                    {
+                        Tables tables = null;
                         try
                         {
-                            foreach (Row row in table.Rows)
+                            tables = range.Tables;
+                            foreach (Table table in tables)
                             {
-                                foreach (Cell cell in row.Cells)
+                                Rows rows = null;
+                                try
                                 {
-                                    cell.Range.HighlightColorIndex = WdColorIndex.wdNoHighlight;
+                                    rows = table.Rows;
+                                    foreach (Row row in rows)
+                                    {
+                                        Cells cells = null;
+                                        try
+                                        {
+                                            cells = row.Cells;
+                                            foreach (Cell cell in cells)
+                                            {
+                                                Microsoft.Office.Interop.Word.Range cellRange = null;
+                                                try
+                                                {
+                                                    cellRange = cell.Range;
+                                                    cellRange.HighlightColorIndex = WdColorIndex.wdNoHighlight;
+                                                }
+                                                catch { }
+                                                finally
+                                                {
+                                                    if (cellRange != null) Marshal.ReleaseComObject(cellRange);
+                                                    Marshal.ReleaseComObject(cell);
+                                                }
+                                            }
+                                        }
+                                        catch { }
+                                        finally
+                                        {
+                                            if (cells != null) Marshal.ReleaseComObject(cells);
+                                            Marshal.ReleaseComObject(row);
+                                        }
+                                    }
+                                }
+                                catch { }
+                                finally
+                                {
+                                    if (rows != null) Marshal.ReleaseComObject(rows);
+                                    Marshal.ReleaseComObject(table);
                                 }
                             }
                         }
-                        catch { } // Skip if table can't be modified
-                    }
-                }
-
-                // Remove any shape fills and backgrounds
-                foreach (Microsoft.Office.Interop.Word.Shape shape in doc.Shapes)
-                {
-                    try
-                    {
-                        if (shape.Type == MsoShapeType.msoTextBox ||
-                            shape.Type == MsoShapeType.msoPicture)
+                        catch { }
+                        finally
                         {
-                            shape.Fill.Visible = MsoTriState.msoFalse;
+                            if (tables != null) Marshal.ReleaseComObject(tables);
+                            Marshal.ReleaseComObject(range);
                         }
                     }
-                    catch { } // Skip if shape can't be modified
+                }
+                finally
+                {
+                    Marshal.ReleaseComObject(storyRanges);
                 }
 
-                // Try to remove document background
+                Microsoft.Office.Interop.Word.Shapes shapes = null;
+                try
+                {
+                    shapes = doc.Shapes;
+                    foreach (Microsoft.Office.Interop.Word.Shape shape in shapes)
+                    {
+                        try
+                        {
+                            if (shape.Type == MsoShapeType.msoTextBox || shape.Type == MsoShapeType.msoPicture)
+                                shape.Fill.Visible = MsoTriState.msoFalse;
+                        }
+                        catch { }
+                        finally
+                        {
+                            Marshal.ReleaseComObject(shape);
+                        }
+                    }
+                }
+                catch { }
+                finally
+                {
+                    if (shapes != null) Marshal.ReleaseComObject(shapes);
+                }
+
                 try
                 {
                     if (doc.Background != null)
-                    {
                         doc.Background.Fill.Visible = MsoTriState.msoFalse;
-                    }
                 }
-                catch { } // Skip if background can't be modified
+                catch { }
             }
             catch (Exception ex)
             {
@@ -267,8 +348,8 @@ namespace DocProcessingSystem.Services
                     {
                         try
                         {
-                            _wordApp.Quit(WdSaveOptions.wdDoNotSaveChanges);
-                            Marshal.ReleaseComObject(_wordApp);
+                            try { _wordApp.Quit(WdSaveOptions.wdDoNotSaveChanges); } catch { }
+                            Marshal.FinalReleaseComObject(_wordApp);
                         }
                         catch (Exception ex)
                         {
